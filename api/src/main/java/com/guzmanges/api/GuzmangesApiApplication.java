@@ -1,4 +1,4 @@
-package com.guzmanges.guzmanges_api;
+package com.guzmanges.api;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

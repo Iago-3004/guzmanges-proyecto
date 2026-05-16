@@ -1,4 +1,4 @@
-package com.guzmanges.guzmanges_api;
+package com.guzmanges.api;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
