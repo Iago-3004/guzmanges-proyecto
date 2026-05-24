@@ -49,6 +49,18 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Recurso no encontrado.
+     *
+     * @param ex excepción con el detalle del recurso no encontrado
+     * @return HTTP 404 con un mensaje de error
+     */
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleNotFound(ResourceNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    /**
      * Cualquier otra excepción no controlada explícitamente.
      *
      * @param ex excepción inesperada
