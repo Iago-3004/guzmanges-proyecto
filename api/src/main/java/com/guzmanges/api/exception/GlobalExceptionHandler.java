@@ -62,6 +62,20 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * CIF duplicado al dar de alta un cliente: ya existe alguno con ese CIF.
+     *
+     * @param ex excepción con el mensaje y la lista de clientes existentes
+     * @return HTTP 409 con el mensaje y la lista de coincidencias (para que la app las muestre)
+     */
+    @ExceptionHandler(CifDuplicadoException.class)
+    public ResponseEntity<Map<String, Object>> handleCifDuplicado(CifDuplicadoException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", ex.getMessage());
+        body.put("clientes", ex.getExistentes());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
      * Ruta o recurso inexistente (incluye rutas mal escritas, p. ej. con barra final).
      * Se devuelve 404 sin volcar la traza, ya que es un error del cliente, no del servidor.
      *

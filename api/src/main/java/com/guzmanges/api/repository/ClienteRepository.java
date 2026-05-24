@@ -17,4 +17,6 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     List<Cliente> findByEstadoSync(EstadoSync estadoSync);
 
     List<Cliente> findByActivoTrueOrderByNombreComercialAsc();
+
+    List<Cliente> findByCifIgnoreCase(String cif);
 }

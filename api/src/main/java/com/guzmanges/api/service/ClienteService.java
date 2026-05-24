@@ -11,6 +11,7 @@ import com.guzmanges.api.dto.CrearClienteRequest;
 import com.guzmanges.api.entity.Cliente;
 import com.guzmanges.api.entity.EstadoSync;
 import com.guzmanges.api.entity.Usuario;
+import com.guzmanges.api.exception.CifDuplicadoException;
 import com.guzmanges.api.exception.ResourceNotFoundException;
 import com.guzmanges.api.mapper.ClienteMapper;
 import com.guzmanges.api.repository.ClienteRepository;
@@ -64,12 +65,29 @@ public class ClienteService {
      * Da de alta un nuevo cliente. Queda asignado al preventa que lo crea y pendiente
      * de envío a Odoo (estadoSync = PENDENTE, sin idOdoo todavía).
      *
-     * @param request  datos del nuevo cliente
-     * @param username nombre de usuario del preventa autenticado
+     * Si ya existe algún cliente con el mismo CIF y no se fuerza el alta, se lanza
+     * {@link CifDuplicadoException} con la lista de coincidencias, para que la app avise
+     * al usuario y este decida si crear uno nuevo de todas formas.
+     *
+     * @param request    datos del nuevo cliente
+     * @param username   nombre de usuario del preventa autenticado
+     * @param forzarAlta si es true, crea el cliente aunque el CIF ya exista
      * @return el cliente creado
      */
     @Transactional
-    public ClienteResponse crear(CrearClienteRequest request, String username) {
+    public ClienteResponse crear(CrearClienteRequest request, String username, boolean forzarAlta) {
+        if (!forzarAlta) {
+            List<Cliente> existentes = clienteRepository.findByCifIgnoreCase(request.cif());
+            if (!existentes.isEmpty()) {
+                List<ClienteResponse> coincidencias = existentes.stream()
+                        .map(clienteMapper::toResponse)
+                        .toList();
+                throw new CifDuplicadoException(
+                        "Ya existe(n) " + existentes.size() + " cliente(s) con el CIF " + request.cif(),
+                        coincidencias);
+            }
+        }
+
         Usuario comercial = usuarioRepository.findByNombreUsuario(username)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado: " + username));
 

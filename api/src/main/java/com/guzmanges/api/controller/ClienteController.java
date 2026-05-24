@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.guzmanges.api.dto.ClienteResponse;
@@ -55,13 +56,16 @@ public class ClienteController {
      * Da de alta un nuevo cliente, asignado al preventa autenticado.
      *
      * @param request        datos del cliente, validados con Bean Validation
+     * @param forzarAlta     si es true, crea el cliente aunque ya exista otro con el mismo CIF
      * @param authentication contexto de seguridad (para identificar al preventa)
-     * @return HTTP 201 con el cliente creado; HTTP 400 si los datos no son válidos
+     * @return HTTP 201 con el cliente creado; HTTP 400 si los datos no son válidos;
+     *         HTTP 409 con la lista de coincidencias si el CIF ya existe y no se fuerza el alta
      */
     @PostMapping
     public ResponseEntity<ClienteResponse> crear(@Valid @RequestBody CrearClienteRequest request,
+                                                 @RequestParam(name = "forzarAlta", defaultValue = "false") boolean forzarAlta,
                                                  Authentication authentication) {
-        ClienteResponse creado = clienteService.crear(request, authentication.getName());
+        ClienteResponse creado = clienteService.crear(request, authentication.getName(), forzarAlta);
         return ResponseEntity.status(HttpStatus.CREATED).body(creado);
     }
 }
