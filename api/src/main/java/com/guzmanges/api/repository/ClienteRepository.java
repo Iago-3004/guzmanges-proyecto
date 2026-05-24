@@ -15,4 +15,6 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     List<Cliente> findByIdOdooIsNull();
 
     List<Cliente> findByEstadoSync(EstadoSync estadoSync);
+
+    List<Cliente> findByActivoTrueOrderByNombreComercialAsc();
 }
