@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.guzmanges.api.odoo.service.OdooMaestrosSyncService;
+import com.guzmanges.api.odoo.service.OdooSyncService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,15 +31,18 @@ public class OdooSyncScheduler {
     private static final Logger log = LoggerFactory.getLogger(OdooSyncScheduler.class);
 
     private final OdooMaestrosSyncService odooMaestrosSyncService;
+    private final OdooSyncService odooSyncService;
 
     /**
      * Se ejecuta una vez al arrancar la aplicación (cuando el contexto está listo).
-     * Realiza la sincronización inicial con Odoo.
+     * Realiza la sincronización inicial con Odoo: primero los maestros y luego los clientes
+     * (los clientes dependen de que los modos y condiciones de pago ya estén en local).
      */
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
         log.info("======== SINCRONIZACIÓN INICIAL CON ODOO ========");
         sincronizarMaestros();
+        importarClientes();
         log.info("======== SINCRONIZACIÓN INICIAL FINALIZADA ========");
     }
 
@@ -50,6 +54,16 @@ public class OdooSyncScheduler {
     public void syncMaestrosPeriodico() {
         log.info("[ODOO SYNC] Sincronización periódica de maestros (modos y condiciones de pago)...");
         sincronizarMaestros();
+    }
+
+    /**
+     * Sincronización periódica de clientes (por ahora, importación desde Odoo).
+     */
+    @Scheduled(fixedDelayString = "${odoo.sync.clientes.interval:900000}",
+               initialDelayString = "${odoo.sync.clientes.interval:900000}")
+    public void syncClientesPeriodico() {
+        log.info("[ODOO SYNC] Sincronización periódica de clientes...");
+        importarClientes();
     }
 
     /**
@@ -66,6 +80,18 @@ public class OdooSyncScheduler {
             odooMaestrosSyncService.syncModosPago();
         } catch (Exception e) {
             log.error("[ERROR] Fallo al sincronizar modos de pago: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Importa los clientes desde Odoo de forma aislada para que un fallo no detenga el arranque.
+     */
+    private void importarClientes() {
+        try {
+            int n = odooSyncService.importarClientesDesdeOdoo();
+            log.info("[ODOO -> DB] {} clientes importados/actualizados desde Odoo", n);
+        } catch (Exception e) {
+            log.error("[ERROR] Fallo al importar clientes desde Odoo: {}", e.getMessage());
         }
     }
 }
