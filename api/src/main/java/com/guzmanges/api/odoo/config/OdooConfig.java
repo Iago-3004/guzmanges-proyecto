@@ -31,6 +31,12 @@ public class OdooConfig {
     private String apikey;
 
     /**
+     * Idioma para las traducciones de Odoo (ej: es_ES). Los campos traducibles, como los
+     * nombres de los catálogos, se leen en este idioma para que la app los muestre en español.
+     */
+    private String lang;
+
+    /**
      * Devuelve la URL del endpoint XML-RPC para autenticación.
      *
      * @return endpoint "common" de Odoo

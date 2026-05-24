@@ -14,6 +14,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,6 +42,7 @@ public class OdooXmlRpcClient {
     private final XmlRpcClient commonClient;
     private final XmlRpcClient objectClient;
     private Integer uid;
+    private Integer defaultCompanyId;
 
     public OdooXmlRpcClient(OdooConfig config) {
         this.config = config;
@@ -89,6 +91,31 @@ public class OdooXmlRpcClient {
         } catch (XmlRpcException e) {
             throw new OdooConnectionException("Error al autenticar con Odoo", e);
         }
+    }
+
+    /**
+     * Obtiene el ID de la empresa por defecto del usuario de la API (campo company_id de res.users).
+     *
+     * Se usa para acotar las sincronizaciones a esa empresa, ya que vía XML-RPC las búsquedas
+     * devuelven registros de todas las compañías a las que el usuario tiene acceso (la interfaz
+     * web sí filtra por la compañía activa, pero la API no). El valor se cachea tras la 1ª llamada.
+     *
+     * @return ID de la empresa por defecto, o null si no se pudo determinar
+     */
+    public Integer getDefaultCompanyId() {
+        if (defaultCompanyId != null) {
+            return defaultCompanyId;
+        }
+        Integer userId = authenticate();
+        List<Map<String, Object>> result = read("res.users", List.of(userId), List.of("company_id"));
+        if (!result.isEmpty() && result.get(0).get("company_id") instanceof Object[] arr && arr.length > 0) {
+            defaultCompanyId = ((Number) arr[0]).intValue();
+            String nombreEmpresa = arr.length > 1 ? String.valueOf(arr[1]) : "id=" + defaultCompanyId;
+            log.info("[ODOO] Empresa por defecto del usuario de la API: {}", nombreEmpresa);
+        } else {
+            log.warn("[ODOO] No se pudo determinar la empresa por defecto del usuario de la API");
+        }
+        return defaultCompanyId;
     }
 
     /**
@@ -224,7 +251,7 @@ public class OdooXmlRpcClient {
                 model,
                 "search_read",
                 List.of(domain),
-                Map.of("fields", fields)
+                buildReadKwargs(fields)
         );
         return Arrays.stream(result)
                 .map(o -> (Map<String, Object>) o)
@@ -245,7 +272,7 @@ public class OdooXmlRpcClient {
                 model,
                 "read",
                 List.of(ids),
-                Map.of("fields", fields)
+                buildReadKwargs(fields)
         );
         return Arrays.stream(result)
                 .map(o -> (Map<String, Object>) o)
@@ -274,6 +301,21 @@ public class OdooXmlRpcClient {
     public Integer searchOne(String model, List<Object> domain) {
         List<Integer> ids = search(model, domain);
         return ids.isEmpty() ? null : ids.get(0);
+    }
+
+    /**
+     * Construye los parámetros con nombre (kwargs) de las operaciones de lectura:
+     * los campos a leer y, si está configurado, el idioma para los campos traducibles
+     * (context = {lang: ...}), de modo que los nombres lleguen en español.
+     */
+    private Map<String, Object> buildReadKwargs(List<String> fields) {
+        Map<String, Object> kwargs = new HashMap<>();
+        kwargs.put("fields", fields);
+        String lang = config.getLang();
+        if (lang != null && !lang.isBlank()) {
+            kwargs.put("context", Map.of("lang", lang));
+        }
+        return kwargs;
     }
 
     /**
