@@ -14,7 +14,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -72,8 +74,9 @@ public class SecurityConfig {
 
     /**
      * Define la cadena de filtros de seguridad: CORS, sin CSRF, sesiones sin
-     * estado, rutas públicas ({@code /auth/**}) frente a protegidas, e inserción
-     * del filtro JWT antes del filtro de usuario/contraseña.
+     * estado, respuesta 401 ante peticiones no autenticadas, rutas públicas
+     * ({@code /auth/**}) frente a protegidas, e inserción del filtro JWT antes
+     * del filtro de usuario/contraseña.
      *
      * @param http configurador de seguridad HTTP
      * @return la cadena de filtros construida
@@ -86,6 +89,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
                         .anyRequest().authenticated())
