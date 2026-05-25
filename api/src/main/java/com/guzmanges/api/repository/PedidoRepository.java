@@ -15,4 +15,6 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
     Optional<Pedido> findByIdOdoo(String idOdoo);
 
     List<Pedido> findByEstadoSync(EstadoSync estadoSync);
+
+    boolean existsByClienteId(Long clienteId);
 }

@@ -88,4 +88,6 @@ public class Cliente {
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private EstadoSync estadoSync;
+
+    private LocalDateTime fechaModificacionOdoo;
 }

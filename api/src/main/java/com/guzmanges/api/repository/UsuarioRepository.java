@@ -9,4 +9,6 @@ import com.guzmanges.api.entity.Usuario;
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     Optional<Usuario> findByNombreUsuario(String nombreUsuario);
+
+    Optional<Usuario> findByEmailIgnoreCase(String email);
 }

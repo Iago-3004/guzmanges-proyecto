@@ -34,7 +34,7 @@ import lombok.RequiredArgsConstructor;
  *       su token JWT, no hay sesión HTTP.</li>
  *   <li>CSRF desactivado: no aplica en una API REST sin cookies de sesión.</li>
  *   <li>Endpoints públicos: todo lo que cuelga de {@code /auth/**} (login).
- *       El resto requiere autenticación.</li>
+ *       Las rutas {@code /sync/**} requieren rol ADMIN. El resto requiere autenticación.</li>
  *   <li>El {@link JwtAuthenticationFilter} se ejecuta antes del filtro estándar
  *       de usuario/contraseña para autenticar a partir del token.</li>
  *   <li>CORS configurable desde {@code application.properties}
@@ -93,6 +93,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/sync/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class);

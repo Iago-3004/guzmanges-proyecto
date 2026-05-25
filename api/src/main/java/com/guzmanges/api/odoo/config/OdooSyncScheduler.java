@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import com.guzmanges.api.odoo.service.OdooMaestrosSyncService;
 import com.guzmanges.api.odoo.service.OdooSyncService;
+import com.guzmanges.api.odoo.service.SyncResult;
 
 import lombok.RequiredArgsConstructor;
 
@@ -42,7 +43,7 @@ public class OdooSyncScheduler {
     public void onApplicationReady() {
         log.info("======== SINCRONIZACIÓN INICIAL CON ODOO ========");
         sincronizarMaestros();
-        importarClientes();
+        sincronizarClientes();
         log.info("======== SINCRONIZACIÓN INICIAL FINALIZADA ========");
     }
 
@@ -57,13 +58,14 @@ public class OdooSyncScheduler {
     }
 
     /**
-     * Sincronización periódica de clientes (por ahora, importación desde Odoo).
+     * Sincronización periódica de clientes en ambos sentidos: importa desde Odoo y
+     * envía las altas pendientes.
      */
     @Scheduled(fixedDelayString = "${odoo.sync.clientes.interval:900000}",
                initialDelayString = "${odoo.sync.clientes.interval:900000}")
     public void syncClientesPeriodico() {
         log.info("[ODOO SYNC] Sincronización periódica de clientes...");
-        importarClientes();
+        sincronizarClientes();
     }
 
     /**
@@ -84,14 +86,23 @@ public class OdooSyncScheduler {
     }
 
     /**
-     * Importa los clientes desde Odoo de forma aislada para que un fallo no detenga el arranque.
+     * Sincroniza los clientes en ambos sentidos (importar de Odoo + enviar los pendientes),
+     * de forma aislada para que un fallo no detenga el resto.
      */
-    private void importarClientes() {
+    private void sincronizarClientes() {
         try {
             int n = odooSyncService.importarClientesDesdeOdoo();
             log.info("[ODOO -> DB] {} clientes importados/actualizados desde Odoo", n);
         } catch (Exception e) {
             log.error("[ERROR] Fallo al importar clientes desde Odoo: {}", e.getMessage());
+        }
+        try {
+            SyncResult envio = odooSyncService.enviarClientesPendientes();
+            if (envio.getTotal() > 0) {
+                log.info("[DB -> ODOO] Envío de clientes pendientes: {}", envio);
+            }
+        } catch (Exception e) {
+            log.error("[ERROR] Fallo al enviar clientes a Odoo: {}", e.getMessage());
         }
     }
 }
