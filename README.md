@@ -65,11 +65,29 @@ api/src/main/java/com/guzmanges/api/
 ├── entity/        →  Entidades JPA (modelo de dominio)
 ├── exception/     →  Manejo centralizado de errores
 ├── mapper/        →  Conversión entidad ↔ DTO
-├── odoo/          →  Cliente de integración con Odoo
+├── odoo/          →  Integración con Odoo (cliente XML-RPC, mappers y sincronización)
 ├── repository/    →  Acceso a datos (Spring Data JPA)
 ├── security/      →  Filtros y proveedores JWT
-└── service/       →  Lógica de negocio
+├── service/       →  Lógica de negocio
+└── util/          →  Utilidades comunes
 ```
+
+---
+
+## 🔌 API REST
+
+Todos los endpoints requieren token JWT (cabecera `Authorization: Bearer <token>`) salvo el login. Los de `/sync` requieren además rol **ADMIN**.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/auth/login` | Autenticación; devuelve el token JWT *(público)* |
+| `GET` | `/clientes` | Lista los clientes activos |
+| `GET` | `/clientes/{id}` | Detalle de un cliente |
+| `POST` | `/clientes` | Alta de cliente (`?forzarAlta=true` omite el control de CIF duplicado) |
+| `GET` | `/modos-pago` · `/modos-pago/{id}` | Catálogo de modos de pago |
+| `GET` | `/condiciones-pago` · `/condiciones-pago/{id}` | Catálogo de condiciones de pago |
+| `POST` | `/sync/clientes` | Sincroniza clientes con Odoo: importa y envía las altas pendientes *(ADMIN)* |
+| `POST` | `/sync/maestros` | Sincroniza los catálogos (modos y condiciones de pago) desde Odoo *(ADMIN)* |
 
 ---
 
@@ -86,8 +104,9 @@ api/src/main/java/com/guzmanges/api/
    CREATE DATABASE guzmanges CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    ```
 
-2. Configurar las variables de entorno. La API las lee al arrancar; si alguna no
-   está definida, se usa su valor por defecto (válido para desarrollo local).
+2. Configurar las variables de entorno. La API las lee al arrancar. Las de MySQL,
+   JWT y CORS tienen un valor por defecto válido para desarrollo local; las de Odoo
+   (ver más abajo) son obligatorias.
 
    | Variable | Descripción | Valor por defecto |
    |---|---|---|
@@ -107,6 +126,23 @@ api/src/main/java/com/guzmanges/api/
    ```bash
    openssl rand -base64 64
    ```
+
+   **Variables de Odoo** (sincronización vía XML-RPC). Las cuatro de conexión **no
+   tienen valor por defecto** y son **obligatorias**: sin ellas la API no arranca.
+
+   | Variable | Descripción | Valor por defecto |
+   |---|---|---|
+   | `ODOO_URL` | URL de la instancia de Odoo | *(obligatoria)* |
+   | `ODOO_DB` | Nombre de la base de datos de Odoo | *(obligatoria)* |
+   | `ODOO_USER` | Usuario/login de la API en Odoo | *(obligatoria)* |
+   | `ODOO_APIKEY` | API key (o contraseña) de ese usuario | *(obligatoria)* |
+   | `ODOO_LANG` | Idioma de los campos traducibles de Odoo | `es_ES` |
+   | `ODOO_SYNC_ENABLED` | Activa la sincronización automática | `true` |
+
+   > La sincronización se ejecuta al arrancar y luego de forma periódica; si Odoo no
+   > responde, los errores se registran y la API sigue en marcha. Con
+   > `ODOO_SYNC_ENABLED=false` se desactivan esas sincronizaciones automáticas (las
+   > variables de conexión siguen siendo necesarias para arrancar).
 
 3. Arrancar la API:
    ```bash
