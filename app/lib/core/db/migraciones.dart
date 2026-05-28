@@ -13,18 +13,39 @@ class Migraciones {
 
   /// Versión actual del esquema. Hay que incrementarla cada vez que se añada
   /// una nueva versión al mapa [_porVersion].
-  static const int versionActual = 1;
+  static const int versionActual = 2;
 
   /// Sentencias SQL agrupadas por versión.
   ///
   /// - **v1**: tabla `sync_metadata` (clave/valor para guardar la marca temporal
   ///   de la última sincronización completa con el servidor).
+  /// - **v2**: tablas `modos_pago` y `condiciones_pago` (catálogos maestros
+  ///   cacheados desde el servidor para alimentar los selectores en la alta
+  ///   de clientes).
   static const Map<int, List<String>> _porVersion = {
     1: [
       '''
       CREATE TABLE sync_metadata (
         clave TEXT PRIMARY KEY,
         valor TEXT NOT NULL
+      )
+      ''',
+    ],
+    2: [
+      '''
+      CREATE TABLE modos_pago (
+        id INTEGER PRIMARY KEY,
+        descripcion TEXT NOT NULL,
+        activo INTEGER NOT NULL DEFAULT 1,
+        actualizado_en INTEGER NOT NULL
+      )
+      ''',
+      '''
+      CREATE TABLE condiciones_pago (
+        id INTEGER PRIMARY KEY,
+        descripcion TEXT NOT NULL,
+        activo INTEGER NOT NULL DEFAULT 1,
+        actualizado_en INTEGER NOT NULL
       )
       ''',
     ],
