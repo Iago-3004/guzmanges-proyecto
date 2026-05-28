@@ -1,7 +1,9 @@
 package com.guzmanges.api.controller;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -32,13 +34,26 @@ public class ClienteController {
     private final ClienteService clienteService;
 
     /**
-     * Lista los clientes activos.
+     * Lista los clientes.
      *
+     * Sin parámetros devuelve únicamente los clientes activos, ordenados por nombre comercial.
+     *
+     * Con {@code modificadoDesde} en formato ISO-8601 (p. ej. 2026-05-20T15:30:00) devuelve
+     * los clientes (activos e inactivos) modificados desde esa fecha. Pensado para
+     * sincronizaciones incrementales desde la app móvil: incluye los desactivados para que
+     * la app refleje las bajas.
+     *
+     * @param modificadoDesde fecha de modificación mínima (opcional)
      * @return lista de clientes
      */
     @GetMapping
-    public List<ClienteResponse> listar() {
-        return clienteService.listar();
+    public List<ClienteResponse> listar(
+            @RequestParam(name = "modificadoDesde", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime modificadoDesde) {
+        if (modificadoDesde == null) {
+            return clienteService.listar();
+        }
+        return clienteService.listarModificadosDesde(modificadoDesde);
     }
 
     /**

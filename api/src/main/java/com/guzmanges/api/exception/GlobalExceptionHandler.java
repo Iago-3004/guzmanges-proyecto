@@ -9,6 +9,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -73,6 +74,19 @@ public class GlobalExceptionHandler {
         body.put("error", ex.getMessage());
         body.put("clientes", ex.getExistentes());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
+     * Parámetro de la URL con tipo o formato incorrecto (p. ej. una fecha mal formada
+     * en {@code ?modificadoDesde=texto-malo}, o un identificador no numérico).
+     *
+     * @param ex excepción con el detalle del parámetro y el valor recibido
+     * @return HTTP 400 con un mensaje indicando qué parámetro es inválido
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, String>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String mensaje = "Parámetro '" + ex.getName() + "' con valor inválido: " + ex.getValue();
+        return ResponseEntity.badRequest().body(Map.of("error", mensaje));
     }
 
     /**

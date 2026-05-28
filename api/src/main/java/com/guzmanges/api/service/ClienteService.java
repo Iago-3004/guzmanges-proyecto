@@ -48,6 +48,23 @@ public class ClienteService {
     }
 
     /**
+     * Lista los clientes (activos e inactivos) modificados desde la fecha indicada,
+     * ordenados por nombre comercial. Pensado para sincronizaciones incrementales:
+     * incluye los desactivados para que la app refleje las bajas.
+     *
+     * @param modificadoDesde fecha de modificación mínima (inclusiva)
+     * @return lista de clientes modificados a partir de esa fecha
+     */
+    @Transactional(readOnly = true)
+    public List<ClienteResponse> listarModificadosDesde(LocalDateTime modificadoDesde) {
+        return clienteRepository
+                .findByFechaModificacionGreaterThanEqualOrderByNombreComercialAsc(modificadoDesde)
+                .stream()
+                .map(clienteMapper::toResponse)
+                .toList();
+    }
+
+    /**
      * Obtiene un cliente por su identificador.
      *
      * @param id identificador del cliente

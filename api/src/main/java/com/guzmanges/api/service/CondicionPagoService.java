@@ -1,5 +1,6 @@
 package com.guzmanges.api.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -30,6 +31,21 @@ public class CondicionPagoService {
      */
     public List<CondicionPagoResponse> listar() {
         return condicionPagoRepository.findByActivoTrueOrderByDescripcionAsc().stream()
+                .map(condicionPagoMapper::toResponse)
+                .toList();
+    }
+
+    /**
+     * Lista las condiciones de pago (activas e inactivas) modificadas desde la fecha indicada,
+     * ordenadas por descripción. Pensado para sincronizaciones incrementales.
+     *
+     * @param modificadoDesde fecha de modificación mínima (inclusiva)
+     * @return lista de condiciones de pago modificadas a partir de esa fecha
+     */
+    public List<CondicionPagoResponse> listarModificadasDesde(LocalDateTime modificadoDesde) {
+        return condicionPagoRepository
+                .findByFechaModificacionGreaterThanEqualOrderByDescripcionAsc(modificadoDesde)
+                .stream()
                 .map(condicionPagoMapper::toResponse)
                 .toList();
     }

@@ -1,5 +1,6 @@
 package com.guzmanges.api.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -30,6 +31,21 @@ public class ModoPagoService {
      */
     public List<ModoPagoResponse> listar() {
         return modoPagoRepository.findByActivoTrueOrderByDescripcionAsc().stream()
+                .map(modoPagoMapper::toResponse)
+                .toList();
+    }
+
+    /**
+     * Lista los modos de pago (activos e inactivos) modificados desde la fecha indicada,
+     * ordenados por descripción. Pensado para sincronizaciones incrementales.
+     *
+     * @param modificadoDesde fecha de modificación mínima (inclusiva)
+     * @return lista de modos de pago modificados a partir de esa fecha
+     */
+    public List<ModoPagoResponse> listarModificadosDesde(LocalDateTime modificadoDesde) {
+        return modoPagoRepository
+                .findByFechaModificacionGreaterThanEqualOrderByDescripcionAsc(modificadoDesde)
+                .stream()
                 .map(modoPagoMapper::toResponse)
                 .toList();
     }
