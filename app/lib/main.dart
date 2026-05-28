@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'core/db/database_helper.dart';
 import 'core/network/api_client.dart';
 import 'core/storage/config_storage.dart';
 import 'core/storage/token_storage.dart';
@@ -14,6 +15,10 @@ import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Base de datos local (SQLite). Se abre antes de arrancar la app para que
+  // cualquier provider o servicio pueda usarla sin comprobaciones extra.
+  await DatabaseHelper.instancia.abrir();
 
   // Dependencias compartidas
   final configStorage = ConfigStorage();
