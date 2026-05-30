@@ -13,7 +13,7 @@ class Migraciones {
 
   /// Versión actual del esquema. Hay que incrementarla cada vez que se añada
   /// una nueva versión al mapa [_porVersion].
-  static const int versionActual = 2;
+  static const int versionActual = 3;
 
   /// Sentencias SQL agrupadas por versión.
   ///
@@ -22,6 +22,10 @@ class Migraciones {
   /// - **v2**: tablas `modos_pago` y `condiciones_pago` (catálogos maestros
   ///   cacheados desde el servidor para alimentar los selectores en la alta
   ///   de clientes).
+  /// - **v3**: tabla `clientes` con identidad dual `id_local` (UUID generado
+  ///   en el móvil) + `id_servidor` (nullable mientras la alta no se haya
+  ///   subido al servidor). Estado de sincronización con los mismos valores
+  ///   que el enum `EstadoSync` del backend (PENDENTE/SINCRONIZADO/ERRO).
   static const Map<int, List<String>> _porVersion = {
     1: [
       '''
@@ -48,6 +52,40 @@ class Migraciones {
         actualizado_en INTEGER NOT NULL
       )
       ''',
+    ],
+    3: [
+      '''
+      CREATE TABLE clientes (
+        id_local TEXT PRIMARY KEY,
+        id_servidor INTEGER UNIQUE,
+        id_odoo TEXT,
+        nombre_comercial TEXT NOT NULL,
+        razon_social TEXT,
+        cif TEXT,
+        direccion TEXT,
+        localidad TEXT,
+        codigo_postal TEXT,
+        provincia TEXT,
+        telefono TEXT,
+        movil TEXT,
+        email TEXT,
+        modo_pago_id INTEGER,
+        modo_pago_descripcion TEXT,
+        condicion_pago_id INTEGER,
+        condicion_pago_descripcion TEXT,
+        comercial TEXT,
+        activo INTEGER NOT NULL DEFAULT 1,
+        estado_sync TEXT NOT NULL
+          CHECK (estado_sync IN ('SINCRONIZADO','PENDENTE','ERRO')),
+        mensaje_error TEXT,
+        coincidencias_409 TEXT,
+        actualizado_en INTEGER NOT NULL,
+        creado_en INTEGER NOT NULL
+      )
+      ''',
+      'CREATE INDEX idx_clientes_estado ON clientes(estado_sync)',
+      'CREATE INDEX idx_clientes_nombre ON clientes(nombre_comercial COLLATE NOCASE)',
+      'CREATE INDEX idx_clientes_activo ON clientes(activo)',
     ],
   };
 
