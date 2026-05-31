@@ -13,7 +13,7 @@ class Migraciones {
 
   /// Versión actual del esquema. Hay que incrementarla cada vez que se añada
   /// una nueva versión al mapa [_porVersion].
-  static const int versionActual = 7;
+  static const int versionActual = 8;
 
   /// Sentencias SQL agrupadas por versión.
   ///
@@ -46,6 +46,13 @@ class Migraciones {
   ///   altas offline). Incluye el IVA por defecto del producto para que la
   ///   app pueda autocompletar las líneas de pedido sin tener que ir al
   ///   servidor.
+  /// - **v8**: tablas `pedidos` y `lineas_pedido` con identidad dual `id_local`
+  ///   (UUID) + `id_servidor` para soportar el alta offline. El pedido
+  ///   referencia al cliente por `cliente_id_local` (FK lógica al UUID del
+  ///   cliente, no por id de servidor) para que pueda apuntar a un cliente
+  ///   recién dado de alta pendiente de subir. Las líneas se borran en
+  ///   cascada (ON DELETE CASCADE) al eliminar la cabecera y guardan el id
+  ///   del producto en servidor directamente (los productos son read-only).
   static const Map<int, List<String>> _porVersion = {
     1: [
       '''
@@ -134,6 +141,51 @@ class Migraciones {
       ''',
       'CREATE INDEX idx_productos_descripcion ON productos(descripcion COLLATE NOCASE)',
       'CREATE INDEX idx_productos_referencia ON productos(referencia COLLATE NOCASE)',
+    ],
+    8: [
+      '''
+      CREATE TABLE pedidos (
+        id_local TEXT PRIMARY KEY,
+        id_servidor INTEGER UNIQUE,
+        id_odoo TEXT,
+        numero TEXT,
+        fecha INTEGER NOT NULL,
+        cliente_id_local TEXT NOT NULL,
+        cliente_id_servidor INTEGER,
+        cliente_nombre TEXT NOT NULL,
+        total_base REAL NOT NULL DEFAULT 0,
+        total_iva REAL NOT NULL DEFAULT 0,
+        total_re REAL NOT NULL DEFAULT 0,
+        total REAL NOT NULL DEFAULT 0,
+        estado_pedido TEXT NOT NULL
+          CHECK (estado_pedido IN ('BORRADOR','CONFIRMADO','ANULADO')),
+        estado_sync TEXT NOT NULL
+          CHECK (estado_sync IN ('SINCRONIZADO','PENDENTE','ERRO')),
+        mensaje_error TEXT,
+        actualizado_en INTEGER NOT NULL,
+        creado_en INTEGER NOT NULL,
+        FOREIGN KEY (cliente_id_local) REFERENCES clientes(id_local)
+      )
+      ''',
+      'CREATE INDEX idx_pedidos_cliente ON pedidos(cliente_id_local)',
+      'CREATE INDEX idx_pedidos_estado_sync ON pedidos(estado_sync)',
+      'CREATE INDEX idx_pedidos_fecha ON pedidos(fecha DESC)',
+      '''
+      CREATE TABLE lineas_pedido (
+        id_local TEXT PRIMARY KEY,
+        pedido_id_local TEXT NOT NULL,
+        producto_id INTEGER NOT NULL,
+        codigo_producto TEXT,
+        descripcion TEXT NOT NULL,
+        precio REAL NOT NULL,
+        iva REAL NOT NULL,
+        recargo_equivalencia REAL NOT NULL DEFAULT 0,
+        cantidade INTEGER NOT NULL,
+        subtotal REAL NOT NULL,
+        FOREIGN KEY (pedido_id_local) REFERENCES pedidos(id_local) ON DELETE CASCADE
+      )
+      ''',
+      'CREATE INDEX idx_lineas_pedido ON lineas_pedido(pedido_id_local)',
     ],
   };
 

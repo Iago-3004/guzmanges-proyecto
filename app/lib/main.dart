@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'core/db/dao/catalogos_dao.dart';
 import 'core/db/dao/clientes_dao.dart';
+import 'core/db/dao/pedidos_dao.dart';
 import 'core/db/dao/productos_dao.dart';
 import 'core/db/dao/sync_metadata_dao.dart';
 import 'core/db/database_helper.dart';
@@ -13,6 +14,7 @@ import 'providers/app_config_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/catalogos_provider.dart';
 import 'providers/clientes_provider.dart';
+import 'providers/pedidos_provider.dart';
 import 'providers/productos_provider.dart';
 import 'providers/sync_provider.dart';
 import 'screens/home_screen.dart';
@@ -21,6 +23,7 @@ import 'screens/servidor_config_screen.dart';
 import 'services/auth_service.dart';
 import 'services/catalogos_service.dart';
 import 'services/clientes_service.dart';
+import 'services/pedidos_service.dart';
 import 'services/productos_service.dart';
 import 'services/sync_clientes_service.dart';
 import 'theme/app_theme.dart';
@@ -43,6 +46,8 @@ Future<void> main() async {
   final clientesDao = ClientesDao();
   final productosService = ProductosService(apiClient);
   final productosDao = ProductosDao();
+  final pedidosService = PedidosService(apiClient);
+  final pedidosDao = PedidosDao();
   final syncMetadataDao = SyncMetadataDao();
   final syncClientesService = SyncClientesService(apiClient, clientesDao);
 
@@ -59,6 +64,9 @@ Future<void> main() async {
   final clientesProvider =
       ClientesProvider(clientesService, clientesDao, syncClientesService)
         ..recargarDesdeLocal();
+  final pedidosProvider =
+      PedidosProvider(pedidosService, pedidosDao, clientesDao)
+        ..recargarDesdeLocal();
   final syncProvider = SyncProvider(
     catalogosProvider,
     productosProvider,
@@ -73,6 +81,7 @@ Future<void> main() async {
     catalogosProvider: catalogosProvider,
     productosProvider: productosProvider,
     clientesProvider: clientesProvider,
+    pedidosProvider: pedidosProvider,
     syncProvider: syncProvider,
   ));
 }
@@ -83,6 +92,7 @@ class GuzmanGesApp extends StatelessWidget {
   final CatalogosProvider catalogosProvider;
   final ProductosProvider productosProvider;
   final ClientesProvider clientesProvider;
+  final PedidosProvider pedidosProvider;
   final SyncProvider syncProvider;
 
   const GuzmanGesApp({
@@ -92,6 +102,7 @@ class GuzmanGesApp extends StatelessWidget {
     required this.catalogosProvider,
     required this.productosProvider,
     required this.clientesProvider,
+    required this.pedidosProvider,
     required this.syncProvider,
   });
 
@@ -104,6 +115,7 @@ class GuzmanGesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: catalogosProvider),
         ChangeNotifierProvider.value(value: productosProvider),
         ChangeNotifierProvider.value(value: clientesProvider),
+        ChangeNotifierProvider.value(value: pedidosProvider),
         ChangeNotifierProvider.value(value: syncProvider),
       ],
       child: MaterialApp(
