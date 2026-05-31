@@ -50,7 +50,8 @@ Future<void> main() async {
   final catalogosProvider =
       CatalogosProvider(catalogosService, catalogosDao)..cargarDesdeLocal();
   final clientesProvider =
-      ClientesProvider(clientesService, clientesDao)..recargarDesdeLocal();
+      ClientesProvider(clientesService, clientesDao, syncClientesService)
+        ..recargarDesdeLocal();
   final syncProvider = SyncProvider(
     catalogosProvider,
     clientesProvider,

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/catalogos_provider.dart';
 import '../../providers/clientes_provider.dart';
 import '../../widgets/cliente_tile.dart';
+import '../sync/estado_sync_screen.dart';
 import 'cliente_detalle_screen.dart';
 import 'cliente_form_screen.dart';
 
@@ -300,28 +301,39 @@ class _BadgePendientes extends StatelessWidget {
       padding: const EdgeInsets.only(right: 8),
       child: Tooltip(
         message: conError > 0
-            ? '$pendientes pendientes · $conError con error'
-            : '$pendientes pendientes de sincronizar',
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
+            ? '$pendientes pendientes · $conError con error · Toca para resolver'
+            : '$pendientes pendientes de sincronizar · Toca para resolver',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.4)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icono, size: 16, color: color),
-              const SizedBox(width: 4),
-              Text(
-                '$total',
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                ),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const EstadoSyncScreen()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: color.withValues(alpha: 0.4)),
               ),
-            ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icono, size: 16, color: color),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$total',
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

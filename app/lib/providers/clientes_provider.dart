@@ -5,6 +5,7 @@ import '../core/db/dao/clientes_dao.dart';
 import '../dto/crear_cliente_request.dart';
 import '../models/cliente.dart';
 import '../services/clientes_service.dart';
+import '../services/sync_clientes_service.dart';
 
 /// Estado en memoria de la lista de clientes.
 ///
@@ -15,10 +16,15 @@ import '../services/clientes_service.dart';
 class ClientesProvider extends ChangeNotifier {
   final ClientesService _service;
   final ClientesDao _dao;
+  final SyncClientesService _syncService;
   final Uuid _uuid;
 
-  ClientesProvider(this._service, this._dao, {Uuid? uuid})
-      : _uuid = uuid ?? const Uuid();
+  ClientesProvider(
+    this._service,
+    this._dao,
+    this._syncService, {
+    Uuid? uuid,
+  }) : _uuid = uuid ?? const Uuid();
 
   /// Lista completa cargada desde SQLite (sin filtrar). El filtrado se hace
   /// en memoria en el getter [clientes] para que `ñ` y acentos funcionen,
@@ -43,6 +49,16 @@ class ClientesProvider extends ChangeNotifier {
   /// Cuántos clientes han fallado al subir y siguen en estado ERRO.
   int get conError =>
       _todosClientes.where((c) => c.estadoSync == EstadoSync.erro).length;
+
+  /// Devuelve todos los clientes en un estado concreto, sin pasar por los
+  /// filtros activos de la lista. Pensado para la pantalla de estado de
+  /// sincronización, que necesita ver pendientes y errores aunque el usuario
+  /// tenga filtros aplicados en la lista principal.
+  List<Cliente> clientesPorEstado(EstadoSync estado) {
+    return _todosClientes
+        .where((c) => c.estadoSync == estado)
+        .toList(growable: false);
+  }
 
   /// Número de filtros (aparte del texto) actualmente activos. Útil para
   /// mostrar un badge junto al botón de filtros.
@@ -165,6 +181,29 @@ class ClientesProvider extends ChangeNotifier {
   /// detalle.
   Future<Cliente?> obtener(String idLocal) {
     return _dao.obtenerPorIdLocal(idLocal);
+  }
+
+  /// Reintenta enviar al servidor un único cliente que estaba pendiente o en
+  /// error. Si [forzarAlta] es true, añade `?forzarAlta=true` para superar
+  /// un 409 por CIF duplicado tras la confirmación del usuario.
+  ///
+  /// Recarga la lista en memoria al terminar para refrescar la UI. Devuelve
+  /// el [ResultadoEnvioUno] para que quien llame pueda mostrar el mensaje
+  /// apropiado (sincronizado, sigue duplicado, error de red, sesión caducada).
+  Future<ResultadoEnvioUno> reintentarCliente(
+    String idLocal, {
+    bool forzarAlta = false,
+  }) async {
+    final cliente = await _dao.obtenerPorIdLocal(idLocal);
+    if (cliente == null) {
+      return ResultadoEnvioUno.errorRecuperable;
+    }
+    final resultado = await _syncService.reenviarUno(
+      cliente,
+      forzarAlta: forzarAlta,
+    );
+    await recargarDesdeLocal();
+    return resultado;
   }
 
   /// Elimina un cliente de la base local. Solo se permite borrar clientes

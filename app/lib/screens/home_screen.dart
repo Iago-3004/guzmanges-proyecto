@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/clientes_provider.dart';
 import '../providers/sync_provider.dart';
 import '../widgets/dialogo_sincronizar.dart';
 import 'clientes/clientes_lista_screen.dart';
+import 'sync/estado_sync_screen.dart';
 
 /// Pantalla principal tras iniciar sesión.
 ///
@@ -105,8 +107,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ListTile(
               leading: const Icon(Icons.sync_problem),
               title: const Text('Estado de sincronización'),
-              subtitle: const Text('Próximamente'),
-              enabled: false,
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const EstadoSyncScreen(),
+                  ),
+                );
+              },
             ),
             const Spacer(),
             const Divider(height: 1),
@@ -137,7 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
           'Hola, ${auth.nombreUsuario ?? ''}',
           style: Theme.of(context).textTheme.headlineSmall,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
+        const _BannerEstadoSync(),
+        const SizedBox(height: 8),
         _TarjetaSeccion(
           icono: Icons.people,
           titulo: 'Clientes',
@@ -177,14 +187,22 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final resultado = await sync.sincronizarTodo();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: resultado.sesionCaducada
-              ? Theme.of(context).colorScheme.error
-              : Colors.green.shade700,
-          content: Text(resultado.resumen()),
-        ),
-      );
+
+      // Cuando hay errores o la sesión caduca, un SnackBar pasa fácilmente
+      // desapercibido. Se sustituye por un diálogo central que obligue al
+      // usuario a reaccionar (o al menos a leer el aviso).
+      if (resultado.sesionCaducada) {
+        await _mostrarDialogoSesionCaducada();
+      } else if (resultado.clientesConError > 0) {
+        await _mostrarDialogoConErrores(resultado);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green.shade700,
+            content: Text(resultado.resumen()),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -197,9 +215,187 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Diálogo central tras una sincronización en la que algún cliente no se
+  /// pudo enviar. Ofrece ir directamente a la pantalla de estado para
+  /// resolverlos o cerrarlo y revisarlos más tarde.
+  Future<void> _mostrarDialogoConErrores(ResultadoSincronizacion r) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.warning_amber_rounded,
+            color: Colors.amber.shade700, size: 40),
+        title: const Text('Sincronización con avisos'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Se han descargado ${r.clientesBajados} '
+              'cliente${r.clientesBajados == 1 ? '' : 's'} y enviado '
+              '${r.clientesSubidos}.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '${r.clientesConError} '
+              'cliente${r.clientesConError == 1 ? ' ha quedado' : 's han quedado'} '
+              'con error y necesita${r.clientesConError == 1 ? '' : 'n'} tu revisión.',
+              style: TextStyle(
+                color: Colors.red.shade700,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cerrar'),
+          ),
+          FilledButton.tonal(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const EstadoSyncScreen()),
+              );
+            },
+            child: const Text('Ver estado'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Diálogo central cuando el servidor ha respondido 401 a mitad de la
+  /// sincronización. El AuthProvider ya hace el logout por su lado al
+  /// detectar el 401; aquí solo damos contexto visual.
+  Future<void> _mostrarDialogoSesionCaducada() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(Icons.lock_clock,
+            color: Theme.of(ctx).colorScheme.error, size: 40),
+        title: const Text('Sesión caducada'),
+        content: const Text(
+          'La sesión ha caducado durante la sincronización. '
+          'Vuelve a iniciar sesión para continuar.',
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Aceptar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _iniciales(String? nombre) {
     if (nombre == null || nombre.isEmpty) return '?';
     return nombre.substring(0, 1).toUpperCase();
+  }
+}
+
+/// Banner persistente que avisa de clientes pendientes o con error de
+/// sincronización. Se oculta cuando todo está al día. Al tocarlo lleva a la
+/// pantalla [EstadoSyncScreen] para que el usuario revise y resuelva.
+///
+/// El color y el texto cambian según haya solo pendientes (ámbar) o
+/// también errores (rojo), para que el usuario distinga de un vistazo si
+/// debe actuar o simplemente esperar a la próxima sincronización.
+class _BannerEstadoSync extends StatelessWidget {
+  const _BannerEstadoSync();
+
+  @override
+  Widget build(BuildContext context) {
+    final clientes = context.watch<ClientesProvider>();
+    final pendientes = clientes.pendientes;
+    final conError = clientes.conError;
+    if (pendientes == 0 && conError == 0) return const SizedBox.shrink();
+
+    final hayError = conError > 0;
+    // Paleta de tonos claramente separados para que el texto contraste bien
+    // sobre el fondo, evitando el efecto "ámbar sobre ámbar" en el que el
+    // mensaje se mezclaba con el card.
+    final fondo = hayError ? Colors.red.shade50 : Colors.amber.shade50;
+    final borde = hayError ? Colors.red.shade300 : Colors.amber.shade400;
+    final colorIcono = hayError ? Colors.red.shade700 : Colors.amber.shade800;
+    final colorTexto = hayError ? Colors.red.shade900 : Colors.amber.shade900;
+    final colorSubtexto =
+        hayError ? Colors.red.shade800 : Colors.amber.shade800;
+
+    final icono = hayError ? Icons.error_outline : Icons.cloud_upload;
+    final accion = hayError ? 'Toca para resolver' : 'Toca para revisar';
+    final mensaje = _construirMensaje(pendientes, conError);
+
+    return Card(
+      margin: EdgeInsets.zero,
+      color: fondo,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: borde),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const EstadoSyncScreen()),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icono, color: colorIcono, size: 26),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      mensaje,
+                      style: TextStyle(
+                        color: colorTexto,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      accion,
+                      style: TextStyle(
+                        color: colorSubtexto,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: colorIcono),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Construye el texto del banner según cuántos pendientes y errores haya.
+  /// Cuando hay errores, esos predominan en la frase para que el usuario
+  /// los priorice; los pendientes se mencionan como complemento si los hay.
+  String _construirMensaje(int pendientes, int conError) {
+    if (conError > 0) {
+      final base =
+          'Hay $conError cliente${conError == 1 ? '' : 's'} con error de sincronización';
+      if (pendientes > 0) {
+        return '$base y $pendientes pendiente${pendientes == 1 ? '' : 's'} de enviar.';
+      }
+      return '$base.';
+    }
+    return 'Hay $pendientes cliente${pendientes == 1 ? '' : 's'} '
+        'pendiente${pendientes == 1 ? '' : 's'} de enviar al servidor.';
   }
 }
 
