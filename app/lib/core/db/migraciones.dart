@@ -17,15 +17,15 @@ class Migraciones {
 
   /// Sentencias SQL agrupadas por versión.
   ///
-  /// - **v1**: tabla `sync_metadata` (clave/valor para guardar la marca temporal
-  ///   de la última sincronización completa con el servidor).
+  /// - **v1**: tabla `sync_metadata` (clave/valor para metadatos varios,
+  ///   en particular la marca temporal de la última sincronización completa).
   /// - **v2**: tablas `modos_pago` y `condiciones_pago` (catálogos maestros
-  ///   cacheados desde el servidor para alimentar los selectores en la alta
-  ///   de clientes).
+  ///   cacheados desde el servidor).
   /// - **v3**: tabla `clientes` con identidad dual `id_local` (UUID generado
-  ///   en el móvil) + `id_servidor` (nullable mientras la alta no se haya
-  ///   subido al servidor). Estado de sincronización con los mismos valores
-  ///   que el enum `EstadoSync` del backend (PENDENTE/SINCRONIZADO/ERRO).
+  ///   en el móvil) + `id_servidor` (int del backend, nullable mientras la
+  ///   alta no esté subida). El estado de sincronización admite los mismos
+  ///   valores que el enum `EstadoSync` del backend (PENDENTE / SINCRONIZADO
+  ///   / ERRO).
   static const Map<int, List<String>> _porVersion = {
     1: [
       '''

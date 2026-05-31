@@ -9,14 +9,12 @@ import 'clientes/clientes_lista_screen.dart';
 /// Pantalla principal tras iniciar sesión.
 ///
 /// Muestra:
-/// - Cards grandes para acceder a las secciones (Clientes, Productos, Pedidos).
-///   Productos y Pedidos quedan como placeholders deshabilitados.
+/// - Cards grandes para acceder a las secciones (Clientes, Productos,
+///   Pedidos). Productos y Pedidos están deshabilitados a la espera de
+///   que se implementen.
 /// - Drawer lateral con accesos rápidos.
-/// - FAB extendido "Sincronizar" en la esquina inferior derecha.
-///
-/// El FAB de este paso lanza en paralelo la sincronización descendente de
-/// catálogos y clientes. En el Paso 6 se sustituirá por `SyncProvider`, que
-/// añadirá también el envío de pendientes.
+/// - FAB extendido "Sincronizar" que descarga catálogos y clientes desde
+///   el servidor.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -160,8 +158,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final catalogos = context.read<CatalogosProvider>();
     final clientes = context.read<ClientesProvider>();
     try {
-      // Paso 4 (temporal): sin marca temporal, sincroniza todo.
-      // En el Paso 6 esto se sustituye por SyncProvider.sincronizarTodo().
+      // Sin marca temporal: arrastra todo lo que tenga el servidor. Más
+      // adelante esta llamada se reemplazará por un único método que
+      // orqueste también el envío de pendientes y use sincronización
+      // incremental.
       final resCatalogos = await catalogos.sincronizarConServidor(null);
       final nClientes = await clientes.sincronizarDesdeServidor(null);
       if (!mounted) return;

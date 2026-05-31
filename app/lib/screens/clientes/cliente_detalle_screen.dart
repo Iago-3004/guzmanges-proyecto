@@ -31,22 +31,95 @@ class _ClienteDetalleScreenState extends State<ClienteDetalleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Cliente')),
-      body: FutureBuilder<Cliente?>(
-        future: _futuro,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final cliente = snapshot.data;
-          if (cliente == null) {
-            return const Center(child: Text('Cliente no encontrado'));
-          }
-          return _construirContenido(context, cliente);
-        },
+    return FutureBuilder<Cliente?>(
+      future: _futuro,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Cliente')),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+        final cliente = snapshot.data;
+        if (cliente == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Cliente')),
+            body: const Center(child: Text('Cliente no encontrado')),
+          );
+        }
+        // Solo se puede borrar localmente lo que aún no se subió al servidor:
+        // los sincronizados se volverían a descargar en la próxima sync.
+        final puedeEliminar = cliente.idServidor == null;
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Cliente'),
+            actions: [
+              if (puedeEliminar)
+                IconButton(
+                  tooltip: 'Eliminar localmente',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _confirmarEliminacion(context, cliente),
+                ),
+            ],
+          ),
+          body: _construirContenido(context, cliente),
+        );
+      },
+    );
+  }
+
+  /// Pide confirmación al usuario y, si acepta, elimina el cliente de SQLite
+  /// y vuelve a la lista.
+  Future<void> _confirmarEliminacion(
+      BuildContext context, Cliente cliente) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        icon: Icon(Icons.warning_amber_rounded,
+            color: Colors.amber.shade700, size: 36),
+        title: const Text('Eliminar cliente'),
+        content: Text(
+          '¿Seguro que quiere eliminar "${cliente.nombreComercial}"? '
+          'Esta acción no se puede deshacer.',
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+              backgroundColor: Theme.of(context).colorScheme.errorContainer,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
       ),
     );
+    if (confirmado != true) return;
+    if (!context.mounted) return;
+    try {
+      await context.read<ClientesProvider>().eliminarClienteLocal(cliente.idLocal);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.green.shade700,
+          content: const Text('Cliente eliminado.'),
+        ),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text('No se pudo eliminar: ${e.toString().replaceFirst('Exception: ', '')}'),
+        ),
+      );
+    }
   }
 
   Widget _construirContenido(BuildContext context, Cliente cliente) {

@@ -2,11 +2,11 @@ import 'package:sqflite/sqflite.dart';
 
 import '../database_helper.dart';
 
-/// DAO mínimo clave/valor para los metadatos de sincronización.
+/// DAO clave/valor para los metadatos de sincronización.
 ///
-/// Por ahora se usa una única clave [claveUltimaSync] que guarda la marca
-/// temporal (ISO-8601 local) de la última sincronización completa con el
-/// servidor. En el futuro podrán añadirse más claves para otros metadatos.
+/// El esquema es genérico (clave + valor textual) para poder añadir nuevos
+/// metadatos sin migrar la BD. La única clave en uso actualmente es
+/// [claveUltimaSync].
 class SyncMetadataDao {
   SyncMetadataDao();
 

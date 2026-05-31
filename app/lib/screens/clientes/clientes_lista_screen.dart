@@ -5,11 +5,14 @@ import '../../providers/catalogos_provider.dart';
 import '../../providers/clientes_provider.dart';
 import '../../widgets/cliente_tile.dart';
 import 'cliente_detalle_screen.dart';
+import 'cliente_form_screen.dart';
 
 /// Pantalla con la lista de clientes en caché local.
 ///
-/// Fuente de datos: SQLite (vía [ClientesProvider]). El botón Sincronizar
-/// de la Home es quien actualiza la BD local desde el servidor.
+/// Lee siempre de SQLite (vía [ClientesProvider]); la sincronización con el
+/// servidor se dispara desde otros puntos de la app, no desde aquí. Permite
+/// búsqueda por texto, filtros por modo y condición de pago, y dar de alta
+/// un cliente nuevo con el botón flotante.
 class ClientesListaScreen extends StatefulWidget {
   const ClientesListaScreen({super.key});
 
@@ -48,6 +51,19 @@ class _ClientesListaScreenState extends State<ClientesListaScreen> {
           const _PanelFiltros(),
           Expanded(child: _construirCuerpo(context, provider)),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ClienteFormScreen()),
+          );
+          // Al volver, refresca por si se ha dado de alta un cliente.
+          if (context.mounted) {
+            context.read<ClientesProvider>().recargarDesdeLocal();
+          }
+        },
+        icon: const Icon(Icons.person_add_alt_1),
+        label: const Text('Nuevo cliente'),
       ),
     );
   }
@@ -223,6 +239,21 @@ class _PanelFiltros extends StatelessWidget {
                   .read<ClientesProvider>()
                   .aplicarFiltroCondicionPago(valor);
             },
+          ),
+          const SizedBox(height: 4),
+          SwitchListTile(
+            value: clientes.filtroSoloPendientes,
+            onChanged: (valor) {
+              context
+                  .read<ClientesProvider>()
+                  .aplicarFiltroSoloPendientes(valor);
+            },
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Solo pendientes de sincronizar'),
+            subtitle: const Text(
+              'Clientes creados que aún no se han enviado al servidor',
+              style: TextStyle(fontSize: 12),
+            ),
           ),
         ],
       ),

@@ -52,6 +52,20 @@ class ClientesDao {
     return Cliente.fromMap(filas.first);
   }
 
+  /// Busca todos los clientes en local cuyo CIF coincide (sin distinguir
+  /// mayúsculas/minúsculas). Incluye activos, inactivos, sincronizados,
+  /// pendientes y con error: cualquiera puede ser una coincidencia a avisar.
+  Future<List<Cliente>> buscarPorCif(String cif) async {
+    final cifNormalizado = cif.trim();
+    if (cifNormalizado.isEmpty) return const [];
+    final filas = await _db.query(
+      _tabla,
+      where: 'UPPER(cif) = UPPER(?)',
+      whereArgs: [cifNormalizado],
+    );
+    return filas.map(Cliente.fromMap).toList(growable: false);
+  }
+
   /// Inserta un cliente nuevo (estado PENDENTE) en SQLite. El [Cliente]
   /// ya debe traer un [Cliente.idLocal] generado (UUID v4).
   Future<void> insertarLocal(Cliente cliente) async {
@@ -138,8 +152,18 @@ class ClientesDao {
     );
   }
 
-  /// Cuenta los clientes en un estado concreto. Útil para el badge de la
-  /// pantalla de estado de sincronización.
+  /// Elimina un cliente de SQLite por su id local. Devuelve cuántas filas se
+  /// han borrado (0 si no existía, 1 en caso normal).
+  Future<int> eliminarPorIdLocal(String idLocal) async {
+    return _db.delete(
+      _tabla,
+      where: 'id_local = ?',
+      whereArgs: [idLocal],
+    );
+  }
+
+  /// Cuenta los clientes en un estado concreto. Útil para mostrar contadores
+  /// de pendientes o con error sin tener que cargar la lista entera.
   Future<int> contarPorEstado(EstadoSync estado) async {
     final filas = await _db.rawQuery(
       'SELECT COUNT(*) AS total FROM $_tabla WHERE estado_sync = ?',

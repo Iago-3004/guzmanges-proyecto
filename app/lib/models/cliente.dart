@@ -1,22 +1,21 @@
-/// Estado de sincronización del cliente con el servidor.
+/// Estado de sincronización de un cliente con el servidor.
 ///
-/// El nombre del backend está en gallego (igual que el enum
-/// `EstadoSync.java`); mantenemos los identificadores Dart en minúscula
-/// CamelCase como es habitual y guardamos la correspondencia textual aparte
-/// para serializar/deserializar.
+/// El nombre textual ([nombreBackend]) es el que se intercambia con el
+/// backend y se guarda en SQLite; el identificador Dart es independiente
+/// para poder mantenerlo en minúscula CamelCase.
 enum EstadoSync {
   sincronizado('SINCRONIZADO'),
   pendente('PENDENTE'),
   erro('ERRO');
 
-  /// Identificador textual que viene/va al backend y se guarda en SQLite.
+  /// Valor textual del enum tal y como lo usa el backend y SQLite.
   final String nombreBackend;
 
   const EstadoSync(this.nombreBackend);
 
-  /// Traduce el valor textual del backend al enum correspondiente.
-  /// Si no se reconoce, asume [sincronizado] como valor por defecto seguro
-  /// (mejor mostrar el registro como "ok" que ocultarlo o crashear).
+  /// Convierte el valor textual del backend al enum correspondiente.
+  /// Si el valor no se reconoce devuelve [sincronizado] como fallback
+  /// defensivo (preferimos mostrar el registro a ocultarlo o crashear).
   static EstadoSync desdeBackend(String? nombre) {
     if (nombre == null) return EstadoSync.sincronizado;
     return EstadoSync.values.firstWhere(
@@ -26,13 +25,12 @@ enum EstadoSync {
   }
 }
 
-/// Cliente en la app, tanto si fue sincronizado desde el servidor como si fue
-/// creado localmente (en cuyo caso [idServidor] e [idOdoo] son null y
-/// [estadoSync] es [EstadoSync.pendente] hasta que se envíe).
+/// Cliente tal como se guarda en SQLite, ya provenga del servidor o se
+/// haya creado localmente.
 ///
-/// La clave primaria local es [idLocal] (UUID generado en el móvil). El
-/// [idServidor] se rellena al recibirlo del servidor — bien al importar
-/// (sincronización descendente) bien al confirmar el alta (ascendente).
+/// Mantiene una identidad dual: [idLocal] es un UUID generado en el móvil
+/// y siempre presente; [idServidor] llega del backend, y es null mientras
+/// el cliente esté pendiente de subir.
 class Cliente {
   final String idLocal;
   final int? idServidor;
@@ -49,8 +47,8 @@ class Cliente {
   final String? movil;
   final String? email;
 
-  /// FK al modo de pago del servidor. Se guarda también la descripción
-  /// (denormalizada) para no necesitar JOIN al listar.
+  /// FK al modo de pago en el servidor. La descripción se guarda
+  /// denormalizada para poder pintar el listado sin un JOIN extra.
   final int? modoPagoId;
   final String? modoPagoDescripcion;
 
@@ -66,8 +64,8 @@ class Cliente {
   /// Mensaje legible del último error al intentar sincronizar, si lo hubo.
   final String? mensajeError;
 
-  /// JSON con la lista de coincidencias devueltas en el último 409 (CIF
-  /// duplicado), si se llegó a ese caso. Pendiente de explotar en el Paso 7.
+  /// JSON con la lista de coincidencias devueltas en un 409 (CIF duplicado).
+  /// Permite reabrir el diálogo de confirmación desde la pantalla de estado.
   final String? coincidencias409;
 
   final DateTime actualizadoEn;
@@ -100,9 +98,11 @@ class Cliente {
     required this.creadoEn,
   });
 
-  /// Construye un cliente a partir del JSON devuelto por la API. El
-  /// [idLocal] hay que proporcionarlo desde fuera: si el cliente ya existía
-  /// localmente, se reusa el suyo; si es nuevo, se genera un UUID.
+  /// Construye un cliente a partir del JSON devuelto por la API.
+  ///
+  /// El [idLocal] no viene en el JSON: lo aporta quien llame, bien con el
+  /// UUID que ya tenía la fila local equivalente, bien con uno nuevo si es
+  /// la primera vez que se ve el cliente.
   factory Cliente.desdeServidor(
     Map<String, dynamic> json, {
     required String idLocal,

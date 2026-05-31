@@ -7,9 +7,9 @@ import '../services/catalogos_service.dart';
 
 /// Estado en memoria de los catálogos de pago (modos y condiciones).
 ///
-/// Es el origen de verdad para los selectores de la alta de clientes. La fuente
-/// de datos primaria es SQLite (lectura offline); la sincronización con el
-/// servidor la lanza el [SyncProvider] cuando el usuario pulsa Sincronizar.
+/// La lectura es siempre desde SQLite, para que los selectores funcionen
+/// también sin conexión. La sincronización contra el servidor sólo se
+/// dispara cuando alguien llama explícitamente a [sincronizarConServidor].
 class CatalogosProvider extends ChangeNotifier {
   final CatalogosService _service;
   final CatalogosDao _dao;
@@ -36,15 +36,17 @@ class CatalogosProvider extends ChangeNotifier {
   }
 
   /// Sincroniza los catálogos con el servidor: pide a la API los modos y
-  /// condiciones modificados desde [desde] (o todos si es null en la primera
-  /// sincronización) y los guarda en SQLite con upsert.
+  /// condiciones modificados desde [desde] (o todos si es null) y los guarda
+  /// en SQLite con upsert.
   ///
-  /// No actualiza la marca temporal global ([SyncMetadataDao]); eso lo hace
-  /// el [SyncProvider] al final de toda la sincronización (Paso 6) para
-  /// garantizar atomicidad.
+  /// Deliberadamente no actualiza la marca temporal global de sincronización
+  /// (`SyncMetadataDao`): esa marca se debe actualizar una sola vez, cuando
+  /// toda la sincronización (catálogos + clientes + envío) termine con
+  /// éxito; si la actualizase aquí, un fallo posterior dejaría una marca
+  /// inconsistente.
   ///
-  /// Devuelve cuántos modos y condiciones se han actualizado, para que el
-  /// orquestador pueda mostrarlo al usuario.
+  /// Devuelve cuántos modos y condiciones se han actualizado, para poder
+  /// mostrarlo en un SnackBar de resumen.
   Future<({int modos, int condiciones})> sincronizarConServidor(
       DateTime? desde) async {
     final nuevosModos = await _service.listarModos(modificadoDesde: desde);

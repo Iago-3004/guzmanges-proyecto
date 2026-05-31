@@ -6,8 +6,9 @@ class CondicionPago {
   /// Texto que se muestra al usuario (p. ej. "Pago inmediato", "30 días").
   final String descripcion;
 
-  /// Si está activa. Las inactivas se mantienen en caché para resolver pedidos
-  /// antiguos pero no aparecen en los selectores de alta de clientes.
+  /// Si está activa. Las inactivas no aparecen en los selectores de alta
+  /// pero se conservan en caché para no perder la descripción al pintar
+  /// clientes o pedidos que las siguen referenciando.
   final bool activo;
 
   const CondicionPago({
@@ -34,7 +35,9 @@ class CondicionPago {
     );
   }
 
-  /// Serializa la entidad para guardarla en SQLite.
+  /// Serializa la entidad para guardarla en SQLite. `actualizado_en` se
+  /// rellena con el instante actual para tener trazabilidad de cuándo se
+  /// refrescó el catálogo en local.
   Map<String, Object?> toMap() {
     return {
       'id': id,
