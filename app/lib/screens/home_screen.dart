@@ -6,6 +6,7 @@ import '../providers/clientes_provider.dart';
 import '../providers/sync_provider.dart';
 import '../widgets/dialogo_sincronizar.dart';
 import 'clientes/clientes_lista_screen.dart';
+import 'productos/productos_lista_screen.dart';
 import 'sync/estado_sync_screen.dart';
 
 /// Pantalla principal tras iniciar sesión.
@@ -158,8 +159,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _TarjetaSeccion(
           icono: Icons.inventory_2,
           titulo: 'Productos',
-          descripcion: 'Próximamente.',
-          onTap: null,
+          descripcion: 'Consulta del catálogo y stock disponible.',
+          onTap: () => _irAProductos(context),
         ),
         const SizedBox(height: 12),
         _TarjetaSeccion(
@@ -179,6 +180,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void _irAClientes(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ClientesListaScreen()),
+    );
+  }
+
+  void _irAProductos(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProductosListaScreen()),
     );
   }
 
