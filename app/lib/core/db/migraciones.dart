@@ -13,7 +13,7 @@ class Migraciones {
 
   /// Versión actual del esquema. Hay que incrementarla cada vez que se añada
   /// una nueva versión al mapa [_porVersion].
-  static const int versionActual = 5;
+  static const int versionActual = 6;
 
   /// Sentencias SQL agrupadas por versión.
   ///
@@ -35,6 +35,11 @@ class Migraciones {
   ///   de impuestos del cliente (recargo de equivalencia, exenciones
   ///   intracomunitarias, etc.). La app la muestra como información; los
   ///   cálculos definitivos los aplica Odoo al confirmar el pedido.
+  /// - **v6**: columna `recargo_equivalencia` (0/1) en `clientes`. Flag que el
+  ///   backend deduce del nombre de la posición fiscal. La app no interpreta
+  ///   el texto: pregunta el flag y, si es 1, aplica las tablas legales
+  ///   españolas (IVA 21→RE 5.2, 10→1.4, 4→0.5) al calcular las líneas de un
+  ///   pedido provisional.
   static const Map<int, List<String>> _porVersion = {
     1: [
       '''
@@ -101,6 +106,9 @@ class Migraciones {
     ],
     5: [
       'ALTER TABLE clientes ADD COLUMN posicion_fiscal TEXT',
+    ],
+    6: [
+      'ALTER TABLE clientes ADD COLUMN recargo_equivalencia INTEGER NOT NULL DEFAULT 0',
     ],
   };
 

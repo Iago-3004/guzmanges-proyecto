@@ -54,6 +54,14 @@ class Cliente {
   /// sujeto a un régimen especial y los totales pueden cambiar al sincronizar.
   final String? posicionFiscal;
 
+  /// Indica si el cliente está sujeto al régimen de recargo de equivalencia.
+  /// Lo decide el backend a partir del nombre de [posicionFiscal] (con una
+  /// palabra clave configurable) y nos lo entrega ya resuelto, para no tener
+  /// que interpretar la cadena en la app. Si es true, al construir las líneas
+  /// de un pedido provisional se aplican las tablas legales españolas
+  /// (IVA 21 → RE 5.2 %, IVA 10 → RE 1.4 %, IVA 4 → RE 0.5 %).
+  final bool recargoEquivalencia;
+
   /// FK al modo de pago en el servidor. La descripción se guarda
   /// denormalizada para poder pintar el listado sin un JOIN extra.
   final int? modoPagoId;
@@ -99,6 +107,7 @@ class Cliente {
     this.movil,
     this.email,
     this.posicionFiscal,
+    this.recargoEquivalencia = false,
     this.modoPagoId,
     this.modoPagoDescripcion,
     this.condicionPagoId,
@@ -149,6 +158,7 @@ class Cliente {
       movil: json['movil'] as String?,
       email: json['email'] as String?,
       posicionFiscal: json['posicionFiscal'] as String?,
+      recargoEquivalencia: (json['recargoEquivalencia'] as bool?) ?? false,
       modoPagoId: modoPago?['id'] as int?,
       modoPagoDescripcion: modoPago?['descripcion'] as String?,
       condicionPagoId: condicionPago?['id'] as int?,
@@ -181,6 +191,7 @@ class Cliente {
       movil: map['movil'] as String?,
       email: map['email'] as String?,
       posicionFiscal: map['posicion_fiscal'] as String?,
+      recargoEquivalencia: ((map['recargo_equivalencia'] as int?) ?? 0) == 1,
       modoPagoId: map['modo_pago_id'] as int?,
       modoPagoDescripcion: map['modo_pago_descripcion'] as String?,
       condicionPagoId: map['condicion_pago_id'] as int?,
@@ -214,6 +225,7 @@ class Cliente {
       'movil': movil,
       'email': email,
       'posicion_fiscal': posicionFiscal,
+      'recargo_equivalencia': recargoEquivalencia ? 1 : 0,
       'modo_pago_id': modoPagoId,
       'modo_pago_descripcion': modoPagoDescripcion,
       'condicion_pago_id': condicionPagoId,
