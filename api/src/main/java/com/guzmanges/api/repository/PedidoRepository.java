@@ -1,6 +1,7 @@
 package com.guzmanges.api.repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +18,15 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
     Optional<Pedido> findByIdOdoo(String idOdoo);
 
     List<Pedido> findByEstadoSync(EstadoSync estadoSync);
+
+    /**
+     * Lista los pedidos en cualquiera de los estados de sincronización dados.
+     * El scheduler de envío a Odoo lo usa para reintentar PENDENTE + ERRO en
+     * la misma vuelta: los errores típicos de pedidos son transitorios
+     * (cliente sin sincronizar, Odoo caído, bug puntual) y se recuperan solos
+     * en el siguiente tic sin intervención manual.
+     */
+    List<Pedido> findByEstadoSyncIn(Collection<EstadoSync> estados);
 
     boolean existsByClienteId(Long clienteId);
 

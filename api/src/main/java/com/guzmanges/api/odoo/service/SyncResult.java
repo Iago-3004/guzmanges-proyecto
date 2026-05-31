@@ -17,7 +17,16 @@ public class SyncResult {
     }
 
     public void addError(Long id, String mensaje) {
-        detalles.add("Cliente " + id + ": " + mensaje);
+        addError("Cliente", id, mensaje);
+    }
+
+    /**
+     * Registra un error con un prefijo personalizado (p. ej. "Pedido"), para que
+     * el mismo {@link SyncResult} sirva tanto al envío de clientes como al de
+     * pedidos sin que el detalle quede etiquetado siempre como "Cliente".
+     */
+    public void addError(String prefijo, Long id, String mensaje) {
+        detalles.add(prefijo + " " + id + ": " + mensaje);
     }
 
     public int getExitos() {

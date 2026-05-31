@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.guzmanges.api.odoo.service.OdooMaestrosSyncService;
+import com.guzmanges.api.odoo.service.OdooPedidosSyncService;
 import com.guzmanges.api.odoo.service.OdooProductosSyncService;
 import com.guzmanges.api.odoo.service.OdooSyncService;
 import com.guzmanges.api.odoo.service.SyncResult;
@@ -35,11 +36,14 @@ public class OdooSyncScheduler {
     private final OdooMaestrosSyncService odooMaestrosSyncService;
     private final OdooSyncService odooSyncService;
     private final OdooProductosSyncService odooProductosSyncService;
+    private final OdooPedidosSyncService odooPedidosSyncService;
 
     /**
      * Se ejecuta una vez al arrancar la aplicación (cuando el contexto está listo).
-     * Realiza la sincronización inicial con Odoo: primero los maestros, luego los productos
-     * y por último los clientes (cada uno depende de que los anteriores estén ya en local).
+     * Realiza la sincronización inicial con Odoo en el orden de dependencias:
+     * maestros → productos → clientes (en ambos sentidos) → pedidos pendientes.
+     * Los pedidos van al final porque dependen de que sus clientes y productos
+     * ya estén sincronizados con Odoo.
      */
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
@@ -47,6 +51,7 @@ public class OdooSyncScheduler {
         sincronizarMaestros();
         sincronizarProductos();
         sincronizarClientes();
+        enviarPedidosPendientes();
         log.info("======== SINCRONIZACIÓN INICIAL FINALIZADA ========");
     }
 
@@ -73,7 +78,9 @@ public class OdooSyncScheduler {
 
     /**
      * Sincronización periódica de clientes en ambos sentidos: importa desde Odoo y
-     * envía las altas pendientes.
+     * envía las altas pendientes. Tras los clientes se reintenta el envío de
+     * pedidos pendientes: así, si un pedido quedó en espera porque su cliente
+     * todavía no estaba en Odoo, en esta misma vuelta puede ya subirse.
      *
      * Antes de los clientes se refrescan los maestros (modos y condiciones de
      * pago): un cliente nuevo en Odoo puede referenciar un modo o condición que
@@ -86,6 +93,20 @@ public class OdooSyncScheduler {
         log.info("[ODOO SYNC] Sincronización periódica de clientes...");
         sincronizarMaestros();
         sincronizarClientes();
+        enviarPedidosPendientes();
+    }
+
+    /**
+     * Sincronización periódica del envío de pedidos a Odoo. Es el cierre del
+     * ciclo bidireccional: convierte cada {@code BORRADOR + PENDENTE} local en
+     * un {@code sale.order} de Odoo y reescribe los totales con los definitivos
+     * que devuelve Odoo (aplicando la posición fiscal del cliente).
+     */
+    @Scheduled(fixedDelayString = "${odoo.sync.pedidos.interval:900000}",
+               initialDelayString = "${odoo.sync.pedidos.interval:900000}")
+    public void syncPedidosPeriodico() {
+        log.info("[ODOO SYNC] Sincronización periódica de pedidos pendientes...");
+        enviarPedidosPendientes();
     }
 
     /**
@@ -136,6 +157,21 @@ public class OdooSyncScheduler {
             }
         } catch (Exception e) {
             log.error("[ERROR] Fallo al enviar clientes a Odoo: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Envía a Odoo los pedidos en BORRADOR + PENDENTE. Aísla el fallo para que
+     * no detenga el resto de la sincronización.
+     */
+    private void enviarPedidosPendientes() {
+        try {
+            SyncResult envio = odooPedidosSyncService.enviarPedidosPendientes();
+            if (envio.getTotal() > 0) {
+                log.info("[DB -> ODOO] Envío de pedidos pendientes: {}", envio);
+            }
+        } catch (Exception e) {
+            log.error("[ERROR] Fallo al enviar pedidos a Odoo: {}", e.getMessage());
         }
     }
 }

@@ -5,10 +5,14 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.guzmanges.api.odoo.service.OdooPedidosSyncService;
 
 import com.guzmanges.api.dto.CrearLineaRequest;
 import com.guzmanges.api.dto.CrearPedidoRequest;
@@ -39,11 +43,14 @@ import com.guzmanges.api.repository.UsuarioRepository;
 @Service
 public class PedidoService {
 
+    private static final Logger log = LoggerFactory.getLogger(PedidoService.class);
+
     private final PedidoRepository pedidoRepository;
     private final ClienteRepository clienteRepository;
     private final ProdutoRepository produtoRepository;
     private final UsuarioRepository usuarioRepository;
     private final PedidoMapper pedidoMapper;
+    private final OdooPedidosSyncService odooPedidosSyncService;
 
     /**
      * Palabra clave (compartida con {@link com.guzmanges.api.mapper.ClienteMapper})
@@ -58,12 +65,14 @@ public class PedidoService {
                          ProdutoRepository produtoRepository,
                          UsuarioRepository usuarioRepository,
                          PedidoMapper pedidoMapper,
+                         OdooPedidosSyncService odooPedidosSyncService,
                          @Value("${app.posicion-fiscal.recargo-keyword:recargo}") String recargoKeyword) {
         this.pedidoRepository = pedidoRepository;
         this.clienteRepository = clienteRepository;
         this.produtoRepository = produtoRepository;
         this.usuarioRepository = usuarioRepository;
         this.pedidoMapper = pedidoMapper;
+        this.odooPedidosSyncService = odooPedidosSyncService;
         this.recargoKeyword = recargoKeyword.toLowerCase();
     }
 
@@ -116,14 +125,23 @@ public class PedidoService {
     }
 
     /**
-     * Da de alta un pedido nuevo desde la app. Queda en {@code BORRADOR} y
-     * {@code PENDENTE}: los totales se calculan aquí en base a las líneas
-     * recibidas (precio, IVA y recargo) y se sobrescriben con los definitivos
-     * cuando Odoo confirme el pedido.
+     * Da de alta un pedido nuevo desde la app. Se calculan los totales
+     * provisionales (precio × IVA × recargo) a partir de las líneas, y a
+     * continuación se intenta enviar inmediatamente a Odoo en la misma
+     * petición: si Odoo responde, la entidad queda ya {@code CONFIRMADO +
+     * SINCRONIZADO} con su {@code idOdoo}, número y totales definitivos (que
+     * reflejan la posición fiscal del cliente) y eso es lo que devuelve el
+     * POST — el preventa ve los totales reales sin tener que esperar al
+     * siguiente ciclo de sincronización.
      *
-     * Para cada línea: si la app no envía precio, IVA o recargo, se toman del
-     * producto y de la posición fiscal del cliente. Esto permite que la app
-     * mande líneas mínimas y delegue el cálculo en el servidor.
+     * Si el envío inmediato falla (Odoo caído, cliente todavía no
+     * sincronizado, etc.), el pedido se persiste igualmente en {@code
+     * BORRADOR + PENDENTE} con sus totales provisionales: el scheduler
+     * periódico lo reintentará después y la app, en su próxima
+     * sincronización descendente, recibirá los totales definitivos.
+     *
+     * Para cada línea: si la app no envía precio, IVA o recargo, se toman
+     * del producto y de la posición fiscal del cliente.
      */
     @Transactional
     public PedidoResponse crear(CrearPedidoRequest request, Authentication authentication) {
@@ -189,7 +207,25 @@ public class PedidoService {
         pedido.setTotal(totalBase.add(totalIva).add(totalRE).setScale(2, RoundingMode.HALF_UP));
 
         Pedido guardado = pedidoRepository.save(pedido);
+        intentarEnvioInmediato(guardado);
         return pedidoMapper.toResponse(guardado);
+    }
+
+    /**
+     * Intenta enviar el pedido recién guardado a Odoo en la misma transacción
+     * del POST. Si Odoo responde, la entidad pasa a CONFIRMADO + SINCRONIZADO
+     * con sus totales definitivos y el commit los persiste atomicamente con
+     * el alta. Si Odoo falla (caído, cliente sin sincronizar, timeout...),
+     * captura la excepción para NO tirar atrás el alta: el pedido queda
+     * persistido como PENDENTE y el scheduler periódico lo reintentará.
+     */
+    private void intentarEnvioInmediato(Pedido pedido) {
+        try {
+            odooPedidosSyncService.enviarUno(pedido);
+        } catch (Exception e) {
+            log.warn("[POST /pedidos] Pedido {} guardado pero envío inmediato a Odoo falló "
+                    + "— queda PENDENTE para el scheduler: {}", pedido.getId(), e.getMessage());
+        }
     }
 
     // --- Helpers ---
