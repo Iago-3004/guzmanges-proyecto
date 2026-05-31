@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
-import '../providers/catalogos_provider.dart';
-import '../providers/clientes_provider.dart';
+import '../providers/sync_provider.dart';
+import '../widgets/dialogo_sincronizar.dart';
 import 'clientes/clientes_lista_screen.dart';
 
 /// Pantalla principal tras iniciar sesión.
@@ -23,11 +23,30 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _sincronizando = false;
+  @override
+  void initState() {
+    super.initState();
+    // Si el usuario acaba de iniciar sesión, le ofrecemos sincronizar.
+    // No se hace al abrir la app con sesión persistida: el flag del
+    // AuthProvider solo se activa tras un login con éxito.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ofrecerSincronizacionTrasLogin();
+    });
+  }
+
+  Future<void> _ofrecerSincronizacionTrasLogin() async {
+    if (!mounted) return;
+    final acaba = context.read<AuthProvider>().consumirSolicitudSincronizacion();
+    if (!acaba) return;
+    final aceptar = await DialogoSincronizar.mostrar(context);
+    if (!aceptar || !mounted) return;
+    await _sincronizar();
+  }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final sync = context.watch<SyncProvider>();
     return Scaffold(
       appBar: AppBar(
         title: const Text('GuzmanGes'),
@@ -35,8 +54,8 @@ class _HomeScreenState extends State<HomeScreen> {
       drawer: _construirDrawer(context, auth),
       body: _construirCuerpo(context, auth),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _sincronizando ? null : _sincronizar,
-        icon: _sincronizando
+        onPressed: sync.sincronizando ? null : _sincronizar,
+        icon: sync.sincronizando
             ? const SizedBox(
                 width: 18,
                 height: 18,
@@ -46,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               )
             : const Icon(Icons.sync),
-        label: Text(_sincronizando ? 'Sincronizando…' : 'Sincronizar'),
+        label: Text(sync.sincronizando ? 'Sincronizando…' : 'Sincronizar'),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
@@ -154,25 +173,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _sincronizar() async {
-    setState(() => _sincronizando = true);
-    final catalogos = context.read<CatalogosProvider>();
-    final clientes = context.read<ClientesProvider>();
+    final sync = context.read<SyncProvider>();
     try {
-      // Sin marca temporal: arrastra todo lo que tenga el servidor. Más
-      // adelante esta llamada se reemplazará por un único método que
-      // orqueste también el envío de pendientes y use sincronización
-      // incremental.
-      final resCatalogos = await catalogos.sincronizarConServidor(null);
-      final nClientes = await clientes.sincronizarDesdeServidor(null);
+      final resultado = await sync.sincronizarTodo();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: Colors.green.shade700,
-          content: Text(
-            'Sincronización completada · '
-            '${resCatalogos.modos} modos / ${resCatalogos.condiciones} condiciones / '
-            '$nClientes clientes',
-          ),
+          backgroundColor: resultado.sesionCaducada
+              ? Theme.of(context).colorScheme.error
+              : Colors.green.shade700,
+          content: Text(resultado.resumen()),
         ),
       );
     } catch (e) {
@@ -184,8 +194,6 @@ class _HomeScreenState extends State<HomeScreen> {
               'Error al sincronizar: ${e.toString().replaceFirst('Exception: ', '')}'),
         ),
       );
-    } finally {
-      if (mounted) setState(() => _sincronizando = false);
     }
   }
 

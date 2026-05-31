@@ -68,6 +68,12 @@ class Cliente {
   /// Permite reabrir el diálogo de confirmación desde la pantalla de estado.
   final String? coincidencias409;
 
+  /// Cuando es true, el envío al servidor irá con `?forzarAlta=true` para
+  /// que la API no rechace por CIF duplicado. Se activa cuando el usuario
+  /// ya confirmó "Crear de todas formas" ante un duplicado en local, para
+  /// no tener que pedirle confirmación otra vez al sincronizar.
+  final bool forzarEnvio;
+
   final DateTime actualizadoEn;
   final DateTime creadoEn;
 
@@ -94,6 +100,7 @@ class Cliente {
     required this.estadoSync,
     this.mensajeError,
     this.coincidencias409,
+    this.forzarEnvio = false,
     required this.actualizadoEn,
     required this.creadoEn,
   });
@@ -103,6 +110,14 @@ class Cliente {
   /// El [idLocal] no viene en el JSON: lo aporta quien llame, bien con el
   /// UUID que ya tenía la fila local equivalente, bien con uno nuevo si es
   /// la primera vez que se ve el cliente.
+  ///
+  /// Importante: el [estadoSync] siempre se fuerza a [EstadoSync.sincronizado].
+  /// Aunque el backend tenga su propio campo `estadoSync` con el mismo nombre,
+  /// allí significa "pendiente de subir a Odoo"; en la app significa
+  /// "pendiente de subir a la API". Como cualquier cliente que llega del
+  /// servidor ya está en la API, desde la perspectiva local está
+  /// sincronizado. Ignoramos el valor del JSON a propósito para no
+  /// reenviarlo en la siguiente sincronización.
   factory Cliente.desdeServidor(
     Map<String, dynamic> json, {
     required String idLocal,
@@ -131,9 +146,10 @@ class Cliente {
       condicionPagoDescripcion: condicionPago?['descripcion'] as String?,
       comercial: json['comercial'] as String?,
       activo: (json['activo'] as bool?) ?? true,
-      estadoSync: EstadoSync.desdeBackend(json['estadoSync'] as String?),
+      estadoSync: EstadoSync.sincronizado,
       mensajeError: null,
       coincidencias409: null,
+      forzarEnvio: false,
       actualizadoEn: ahora,
       creadoEn: creadoEn ?? ahora,
     );
@@ -164,6 +180,7 @@ class Cliente {
       estadoSync: EstadoSync.desdeBackend(map['estado_sync'] as String?),
       mensajeError: map['mensaje_error'] as String?,
       coincidencias409: map['coincidencias_409'] as String?,
+      forzarEnvio: ((map['forzar_envio'] as int?) ?? 0) == 1,
       actualizadoEn:
           DateTime.fromMillisecondsSinceEpoch(map['actualizado_en'] as int),
       creadoEn: DateTime.fromMillisecondsSinceEpoch(map['creado_en'] as int),
@@ -195,6 +212,7 @@ class Cliente {
       'estado_sync': estadoSync.nombreBackend,
       'mensaje_error': mensajeError,
       'coincidencias_409': coincidencias409,
+      'forzar_envio': forzarEnvio ? 1 : 0,
       'actualizado_en': actualizadoEn.millisecondsSinceEpoch,
       'creado_en': creadoEn.millisecondsSinceEpoch,
     };

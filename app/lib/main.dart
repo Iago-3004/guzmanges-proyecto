@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'core/db/dao/catalogos_dao.dart';
 import 'core/db/dao/clientes_dao.dart';
+import 'core/db/dao/sync_metadata_dao.dart';
 import 'core/db/database_helper.dart';
 import 'core/network/api_client.dart';
 import 'core/storage/config_storage.dart';
@@ -11,12 +12,14 @@ import 'providers/app_config_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/catalogos_provider.dart';
 import 'providers/clientes_provider.dart';
+import 'providers/sync_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/servidor_config_screen.dart';
 import 'services/auth_service.dart';
 import 'services/catalogos_service.dart';
 import 'services/clientes_service.dart';
+import 'services/sync_clientes_service.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -35,6 +38,8 @@ Future<void> main() async {
   final catalogosDao = CatalogosDao();
   final clientesService = ClientesService(apiClient);
   final clientesDao = ClientesDao();
+  final syncMetadataDao = SyncMetadataDao();
+  final syncClientesService = SyncClientesService(apiClient, clientesDao);
 
   // Si ya hay una URL configurada, se aplica al cliente HTTP antes de arrancar
   final urlGuardada = await configStorage.leerUrlServidor();
@@ -42,13 +47,23 @@ Future<void> main() async {
     apiClient.setBaseUrl(urlGuardada);
   }
 
+  final catalogosProvider =
+      CatalogosProvider(catalogosService, catalogosDao)..cargarDesdeLocal();
+  final clientesProvider =
+      ClientesProvider(clientesService, clientesDao)..recargarDesdeLocal();
+  final syncProvider = SyncProvider(
+    catalogosProvider,
+    clientesProvider,
+    syncClientesService,
+    syncMetadataDao,
+  );
+
   runApp(GuzmanGesApp(
     appConfigProvider: AppConfigProvider(configStorage, apiClient, urlGuardada),
     authProvider: AuthProvider(authService, tokenStorage)..comprobarSesion(),
-    catalogosProvider:
-        CatalogosProvider(catalogosService, catalogosDao)..cargarDesdeLocal(),
-    clientesProvider:
-        ClientesProvider(clientesService, clientesDao)..recargarDesdeLocal(),
+    catalogosProvider: catalogosProvider,
+    clientesProvider: clientesProvider,
+    syncProvider: syncProvider,
   ));
 }
 
@@ -57,6 +72,7 @@ class GuzmanGesApp extends StatelessWidget {
   final AuthProvider authProvider;
   final CatalogosProvider catalogosProvider;
   final ClientesProvider clientesProvider;
+  final SyncProvider syncProvider;
 
   const GuzmanGesApp({
     super.key,
@@ -64,6 +80,7 @@ class GuzmanGesApp extends StatelessWidget {
     required this.authProvider,
     required this.catalogosProvider,
     required this.clientesProvider,
+    required this.syncProvider,
   });
 
   @override
@@ -74,6 +91,7 @@ class GuzmanGesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider.value(value: catalogosProvider),
         ChangeNotifierProvider.value(value: clientesProvider),
+        ChangeNotifierProvider.value(value: syncProvider),
       ],
       child: MaterialApp(
         title: 'GuzmanGes',

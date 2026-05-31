@@ -52,6 +52,24 @@ class ClientesDao {
     return Cliente.fromMap(filas.first);
   }
 
+  /// Lista los clientes que aún no se han subido al servidor, es decir, los
+  /// que no tienen `id_servidor`. Se ordenan en orden de creación (FIFO)
+  /// para que el envío al servidor respete el orden en que el usuario los
+  /// dio de alta.
+  ///
+  /// Usar `id_servidor IS NULL` (y no `estado_sync IN (...)`) hace que la
+  /// cola sea robusta frente al campo `estadoSync` del backend, que tiene
+  /// un significado distinto al de la app y podría sobrescribirse en una
+  /// sincronización descendente.
+  Future<List<Cliente>> listarPendientesDeEnvio() async {
+    final filas = await _db.query(
+      _tabla,
+      where: 'id_servidor IS NULL',
+      orderBy: 'creado_en ASC',
+    );
+    return filas.map(Cliente.fromMap).toList(growable: false);
+  }
+
   /// Busca todos los clientes en local cuyo CIF coincide (sin distinguir
   /// mayúsculas/minúsculas). Incluye activos, inactivos, sincronizados,
   /// pendientes y con error: cualquiera puede ser una coincidencia a avisar.

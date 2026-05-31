@@ -19,6 +19,7 @@ class AuthProvider extends ChangeNotifier {
   bool _cargando = false;
   String? _error;
   bool _sesionCaducada = false;
+  bool _solicitarSincronizacion = false;
 
   EstadoAuth get estado => _estado;
   String? get nombreUsuario => _nombreUsuario;
@@ -30,6 +31,18 @@ class AuthProvider extends ChangeNotifier {
   /// Sirve para avisar al usuario en el login. Se limpia al iniciar sesión.
   bool get sesionCaducada => _sesionCaducada;
   bool get esAdmin => _rol == 'ADMIN';
+
+  /// Devuelve true si el usuario acaba de loguearse y todavía no se le ha
+  /// preguntado si quiere sincronizar. Llamar a este getter consume la
+  /// señal: la próxima vez devolverá false hasta el siguiente login.
+  ///
+  /// La pantalla principal lo usa para mostrar el diálogo de sincronización
+  /// solo tras un login real, no cuando la app arranca con sesión persistida.
+  bool consumirSolicitudSincronizacion() {
+    if (!_solicitarSincronizacion) return false;
+    _solicitarSincronizacion = false;
+    return true;
+  }
 
   /// Comprueba si hay una sesión guardada y todavía válida (token no caducado).
   /// Se llama al arrancar la app.
@@ -71,6 +84,7 @@ class AuthProvider extends ChangeNotifier {
       _nombreUsuario = sesion.nombreUsuario;
       _rol = sesion.rol;
       _estado = EstadoAuth.autenticado;
+      _solicitarSincronizacion = true;
       _cargando = false;
       notifyListeners();
       return true;

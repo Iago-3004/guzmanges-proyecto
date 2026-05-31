@@ -44,6 +44,7 @@ class _ClientesListaScreenState extends State<ClientesListaScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Clientes'),
+        actions: const [_BadgePendientes()],
       ),
       body: Column(
         children: [
@@ -272,6 +273,58 @@ class _PanelFiltros extends StatelessWidget {
       focusedBorder: const OutlineInputBorder(gapPadding: 8),
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    );
+  }
+}
+
+// =============================================================================
+// Badge con el total de pendientes / con error de sincronización
+// =============================================================================
+
+class _BadgePendientes extends StatelessWidget {
+  const _BadgePendientes();
+
+  @override
+  Widget build(BuildContext context) {
+    final clientes = context.watch<ClientesProvider>();
+    final pendientes = clientes.pendientes;
+    final conError = clientes.conError;
+    final total = pendientes + conError;
+    if (total == 0) return const SizedBox.shrink();
+
+    // Si hay algún error, predomina el rojo; si solo hay pendientes, ámbar.
+    final color = conError > 0 ? Colors.red.shade700 : Colors.amber.shade700;
+    final icono = conError > 0 ? Icons.error_outline : Icons.cloud_upload;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Tooltip(
+        message: conError > 0
+            ? '$pendientes pendientes · $conError con error'
+            : '$pendientes pendientes de sincronizar',
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icono, size: 16, color: color),
+              const SizedBox(width: 4),
+              Text(
+                '$total',
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

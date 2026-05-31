@@ -36,6 +36,14 @@ class ClientesProvider extends ChangeNotifier {
   bool get filtroSoloPendientes => _filtroSoloPendientes;
   bool get cargando => _cargando;
 
+  /// Cuántos clientes están pendientes de subir al servidor.
+  int get pendientes =>
+      _todosClientes.where((c) => c.estadoSync == EstadoSync.pendente).length;
+
+  /// Cuántos clientes han fallado al subir y siguen en estado ERRO.
+  int get conError =>
+      _todosClientes.where((c) => c.estadoSync == EstadoSync.erro).length;
+
   /// Número de filtros (aparte del texto) actualmente activos. Útil para
   /// mostrar un badge junto al botón de filtros.
   int get numeroFiltrosActivos =>
@@ -197,11 +205,18 @@ class ClientesProvider extends ChangeNotifier {
   /// [comercial] es el nombre del preventa autenticado, guardado en local
   /// solo a efectos informativos; al sincronizar, la API devolverá la
   /// versión definitiva.
+  ///
+  /// Si [forzarEnvio] es true, al subir este cliente al servidor se
+  /// añadirá `?forzarAlta=true` para que la API no lo rechace por CIF
+  /// duplicado. Se usa cuando el usuario ya ha decidido "Crear de todas
+  /// formas" ante un duplicado detectado en local, para no obligarle a
+  /// confirmar otra vez al sincronizar.
   Future<Cliente> crearCliente(
     CrearClienteRequest req, {
     String? modoPagoDescripcion,
     String? condicionPagoDescripcion,
     String? comercial,
+    bool forzarEnvio = false,
   }) async {
     final ahora = DateTime.now();
     final cliente = Cliente(
@@ -225,6 +240,7 @@ class ClientesProvider extends ChangeNotifier {
       comercial: comercial,
       activo: true,
       estadoSync: EstadoSync.pendente,
+      forzarEnvio: forzarEnvio,
       actualizadoEn: ahora,
       creadoEn: ahora,
     );

@@ -13,7 +13,7 @@ class Migraciones {
 
   /// Versión actual del esquema. Hay que incrementarla cada vez que se añada
   /// una nueva versión al mapa [_porVersion].
-  static const int versionActual = 3;
+  static const int versionActual = 4;
 
   /// Sentencias SQL agrupadas por versión.
   ///
@@ -26,6 +26,10 @@ class Migraciones {
   ///   alta no esté subida). El estado de sincronización admite los mismos
   ///   valores que el enum `EstadoSync` del backend (PENDENTE / SINCRONIZADO
   ///   / ERRO).
+  /// - **v4**: columna `forzar_envio` en `clientes`. Se pone a 1 cuando el
+  ///   usuario ha confirmado "Crear de todas formas" ante un duplicado local,
+  ///   para que al subirlo se envíe con `?forzarAlta=true` y el servidor no
+  ///   vuelva a preguntar por la misma coincidencia.
   static const Map<int, List<String>> _porVersion = {
     1: [
       '''
@@ -86,6 +90,9 @@ class Migraciones {
       'CREATE INDEX idx_clientes_estado ON clientes(estado_sync)',
       'CREATE INDEX idx_clientes_nombre ON clientes(nombre_comercial COLLATE NOCASE)',
       'CREATE INDEX idx_clientes_activo ON clientes(activo)',
+    ],
+    4: [
+      'ALTER TABLE clientes ADD COLUMN forzar_envio INTEGER NOT NULL DEFAULT 0',
     ],
   };
 

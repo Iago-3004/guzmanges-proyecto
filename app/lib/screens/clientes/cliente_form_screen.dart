@@ -322,6 +322,10 @@ class _ClienteFormScreenState extends State<ClienteFormScreen> {
 
       // Comprobación local de CIF duplicado: si ya existe alguno en SQLite con
       // el mismo CIF, mostramos un diálogo y dejamos que el usuario decida.
+      // Si confirma, marcamos el cliente con `forzarEnvio = true` para que al
+      // subirlo no se le vuelva a preguntar la misma confirmación al recibir
+      // un 409 del servidor.
+      bool forzarEnvio = false;
       final coincidencias =
           await clientesProvider.buscarCoincidenciasPorCif(cifNormalizado);
       if (coincidencias.isNotEmpty) {
@@ -336,6 +340,7 @@ class _ClienteFormScreenState extends State<ClienteFormScreen> {
           if (mounted) setState(() => _guardando = false);
           return;
         }
+        forzarEnvio = true;
       }
 
       final descModo = _buscarDescripcion(
@@ -364,6 +369,7 @@ class _ClienteFormScreenState extends State<ClienteFormScreen> {
         modoPagoDescripcion: descModo,
         condicionPagoDescripcion: descCondicion,
         comercial: auth.nombreUsuario,
+        forzarEnvio: forzarEnvio,
       );
 
       if (!mounted) return;
