@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'core/db/dao/catalogos_dao.dart';
 import 'core/db/dao/clientes_dao.dart';
+import 'core/db/dao/productos_dao.dart';
 import 'core/db/dao/sync_metadata_dao.dart';
 import 'core/db/database_helper.dart';
 import 'core/network/api_client.dart';
@@ -12,6 +13,7 @@ import 'providers/app_config_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/catalogos_provider.dart';
 import 'providers/clientes_provider.dart';
+import 'providers/productos_provider.dart';
 import 'providers/sync_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -19,6 +21,7 @@ import 'screens/servidor_config_screen.dart';
 import 'services/auth_service.dart';
 import 'services/catalogos_service.dart';
 import 'services/clientes_service.dart';
+import 'services/productos_service.dart';
 import 'services/sync_clientes_service.dart';
 import 'theme/app_theme.dart';
 
@@ -38,6 +41,8 @@ Future<void> main() async {
   final catalogosDao = CatalogosDao();
   final clientesService = ClientesService(apiClient);
   final clientesDao = ClientesDao();
+  final productosService = ProductosService(apiClient);
+  final productosDao = ProductosDao();
   final syncMetadataDao = SyncMetadataDao();
   final syncClientesService = SyncClientesService(apiClient, clientesDao);
 
@@ -49,11 +54,14 @@ Future<void> main() async {
 
   final catalogosProvider =
       CatalogosProvider(catalogosService, catalogosDao)..cargarDesdeLocal();
+  final productosProvider =
+      ProductosProvider(productosService, productosDao)..cargarDesdeLocal();
   final clientesProvider =
       ClientesProvider(clientesService, clientesDao, syncClientesService)
         ..recargarDesdeLocal();
   final syncProvider = SyncProvider(
     catalogosProvider,
+    productosProvider,
     clientesProvider,
     syncClientesService,
     syncMetadataDao,
@@ -63,6 +71,7 @@ Future<void> main() async {
     appConfigProvider: AppConfigProvider(configStorage, apiClient, urlGuardada),
     authProvider: AuthProvider(authService, tokenStorage)..comprobarSesion(),
     catalogosProvider: catalogosProvider,
+    productosProvider: productosProvider,
     clientesProvider: clientesProvider,
     syncProvider: syncProvider,
   ));
@@ -72,6 +81,7 @@ class GuzmanGesApp extends StatelessWidget {
   final AppConfigProvider appConfigProvider;
   final AuthProvider authProvider;
   final CatalogosProvider catalogosProvider;
+  final ProductosProvider productosProvider;
   final ClientesProvider clientesProvider;
   final SyncProvider syncProvider;
 
@@ -80,6 +90,7 @@ class GuzmanGesApp extends StatelessWidget {
     required this.appConfigProvider,
     required this.authProvider,
     required this.catalogosProvider,
+    required this.productosProvider,
     required this.clientesProvider,
     required this.syncProvider,
   });
@@ -91,6 +102,7 @@ class GuzmanGesApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: appConfigProvider),
         ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider.value(value: catalogosProvider),
+        ChangeNotifierProvider.value(value: productosProvider),
         ChangeNotifierProvider.value(value: clientesProvider),
         ChangeNotifierProvider.value(value: syncProvider),
       ],

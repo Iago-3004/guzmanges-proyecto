@@ -13,7 +13,7 @@ class Migraciones {
 
   /// Versión actual del esquema. Hay que incrementarla cada vez que se añada
   /// una nueva versión al mapa [_porVersion].
-  static const int versionActual = 6;
+  static const int versionActual = 7;
 
   /// Sentencias SQL agrupadas por versión.
   ///
@@ -40,6 +40,12 @@ class Migraciones {
   ///   el texto: pregunta el flag y, si es 1, aplica las tablas legales
   ///   españolas (IVA 21→RE 5.2, 10→1.4, 4→0.5) al calcular las líneas de un
   ///   pedido provisional.
+  /// - **v7**: tabla `productos` (catálogo cacheado desde el servidor). Solo
+  ///   lectura: el alta y la edición se gestionan en Odoo. La clave primaria
+  ///   es directamente el id del servidor (sin UUID local, porque no hay
+  ///   altas offline). Incluye el IVA por defecto del producto para que la
+  ///   app pueda autocompletar las líneas de pedido sin tener que ir al
+  ///   servidor.
   static const Map<int, List<String>> _porVersion = {
     1: [
       '''
@@ -109,6 +115,25 @@ class Migraciones {
     ],
     6: [
       'ALTER TABLE clientes ADD COLUMN recargo_equivalencia INTEGER NOT NULL DEFAULT 0',
+    ],
+    7: [
+      '''
+      CREATE TABLE productos (
+        id INTEGER PRIMARY KEY,
+        id_odoo TEXT,
+        referencia TEXT,
+        descripcion TEXT NOT NULL,
+        codigo_barras TEXT,
+        tipo_producto TEXT,
+        stock INTEGER,
+        precio_venta REAL,
+        iva REAL,
+        observaciones TEXT,
+        actualizado_en INTEGER NOT NULL
+      )
+      ''',
+      'CREATE INDEX idx_productos_descripcion ON productos(descripcion COLLATE NOCASE)',
+      'CREATE INDEX idx_productos_referencia ON productos(referencia COLLATE NOCASE)',
     ],
   };
 

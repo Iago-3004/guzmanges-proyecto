@@ -4,12 +4,14 @@ import '../core/db/dao/sync_metadata_dao.dart';
 import '../services/sync_clientes_service.dart';
 import 'catalogos_provider.dart';
 import 'clientes_provider.dart';
+import 'productos_provider.dart';
 
 /// Resultado completo de una sincronización: contadores de lo descargado y
 /// lo enviado, más una bandera por si la sesión se cortó por 401.
 class ResultadoSincronizacion {
   final int modos;
   final int condiciones;
+  final int productosBajados;
   final int clientesBajados;
   final int clientesSubidos;
   final int clientesConError;
@@ -18,6 +20,7 @@ class ResultadoSincronizacion {
   const ResultadoSincronizacion({
     required this.modos,
     required this.condiciones,
+    required this.productosBajados,
     required this.clientesBajados,
     required this.clientesSubidos,
     required this.clientesConError,
@@ -31,6 +34,7 @@ class ResultadoSincronizacion {
     }
     final partes = <String>[
       '$modos modos / $condiciones condiciones',
+      '$productosBajados productos',
       '$clientesBajados clientes descargados',
       '$clientesSubidos enviados',
     ];
@@ -41,20 +45,22 @@ class ResultadoSincronizacion {
   }
 }
 
-/// Orquesta la sincronización completa con el servidor: catálogos, clientes
-/// descendentes y envío de pendientes ascendentes, en ese orden.
+/// Orquesta la sincronización completa con el servidor: catálogos, productos,
+/// clientes descendentes y envío de pendientes ascendentes, en ese orden.
 ///
 /// La marca temporal `ultimaSync` solo avanza cuando toda la cadena termina
 /// con éxito (sin 401), para evitar dejarla en un estado inconsistente si
 /// algún paso intermedio falla.
 class SyncProvider extends ChangeNotifier {
   final CatalogosProvider _catalogos;
+  final ProductosProvider _productos;
   final ClientesProvider _clientes;
   final SyncClientesService _syncClientes;
   final SyncMetadataDao _metadataDao;
 
   SyncProvider(
     this._catalogos,
+    this._productos,
     this._clientes,
     this._syncClientes,
     this._metadataDao,
@@ -78,6 +84,7 @@ class SyncProvider extends ChangeNotifier {
       return _ultimoResultado ?? const ResultadoSincronizacion(
         modos: 0,
         condiciones: 0,
+        productosBajados: 0,
         clientesBajados: 0,
         clientesSubidos: 0,
         clientesConError: 0,
@@ -92,6 +99,7 @@ class SyncProvider extends ChangeNotifier {
       final ultimaSync = await _metadataDao.obtenerUltimaSync();
 
       final resCatalogos = await _catalogos.sincronizarConServidor(ultimaSync);
+      final nProductos = await _productos.sincronizarConServidor(ultimaSync);
       final nClientes = await _clientes.sincronizarDesdeServidor(ultimaSync);
       final resEnvio = await _syncClientes.enviarPendientes();
 
@@ -109,6 +117,7 @@ class SyncProvider extends ChangeNotifier {
       final resultado = ResultadoSincronizacion(
         modos: resCatalogos.modos,
         condiciones: resCatalogos.condiciones,
+        productosBajados: nProductos,
         clientesBajados: nClientes,
         clientesSubidos: resEnvio.sincronizados,
         clientesConError: resEnvio.conError,
