@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.guzmanges.api.odoo.service.OdooMaestrosSyncService;
+import com.guzmanges.api.odoo.service.OdooProductosSyncService;
 import com.guzmanges.api.odoo.service.OdooSyncService;
 import com.guzmanges.api.odoo.service.SyncResult;
 
@@ -33,16 +34,18 @@ public class OdooSyncScheduler {
 
     private final OdooMaestrosSyncService odooMaestrosSyncService;
     private final OdooSyncService odooSyncService;
+    private final OdooProductosSyncService odooProductosSyncService;
 
     /**
      * Se ejecuta una vez al arrancar la aplicación (cuando el contexto está listo).
-     * Realiza la sincronización inicial con Odoo: primero los maestros y luego los clientes
-     * (los clientes dependen de que los modos y condiciones de pago ya estén en local).
+     * Realiza la sincronización inicial con Odoo: primero los maestros, luego los productos
+     * y por último los clientes (cada uno depende de que los anteriores estén ya en local).
      */
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
         log.info("======== SINCRONIZACIÓN INICIAL CON ODOO ========");
         sincronizarMaestros();
+        sincronizarProductos();
         sincronizarClientes();
         log.info("======== SINCRONIZACIÓN INICIAL FINALIZADA ========");
     }
@@ -58,13 +61,30 @@ public class OdooSyncScheduler {
     }
 
     /**
+     * Sincronización periódica del catálogo de productos. Solo importación
+     * (Odoo → BD local): los productos no se crean ni modifican desde la app.
+     */
+    @Scheduled(fixedDelayString = "${odoo.sync.productos.interval:3600000}",
+               initialDelayString = "${odoo.sync.productos.interval:3600000}")
+    public void syncProductosPeriodico() {
+        log.info("[ODOO SYNC] Sincronización periódica de productos...");
+        sincronizarProductos();
+    }
+
+    /**
      * Sincronización periódica de clientes en ambos sentidos: importa desde Odoo y
      * envía las altas pendientes.
+     *
+     * Antes de los clientes se refrescan los maestros (modos y condiciones de
+     * pago): un cliente nuevo en Odoo puede referenciar un modo o condición que
+     * todavía no esté en local; si no se cargase primero, el cliente quedaría
+     * guardado con esa FK a null hasta que se modificase de nuevo en Odoo.
      */
     @Scheduled(fixedDelayString = "${odoo.sync.clientes.interval:900000}",
                initialDelayString = "${odoo.sync.clientes.interval:900000}")
     public void syncClientesPeriodico() {
         log.info("[ODOO SYNC] Sincronización periódica de clientes...");
+        sincronizarMaestros();
         sincronizarClientes();
     }
 
@@ -82,6 +102,19 @@ public class OdooSyncScheduler {
             odooMaestrosSyncService.syncModosPago();
         } catch (Exception e) {
             log.error("[ERROR] Fallo al sincronizar modos de pago: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Importa el catálogo de productos desde Odoo. Aísla los fallos para no detener
+     * el resto de la sincronización.
+     */
+    private void sincronizarProductos() {
+        try {
+            int n = odooProductosSyncService.importarProductosDesdeOdoo();
+            log.info("[ODOO -> DB] {} productos importados/actualizados desde Odoo", n);
+        } catch (Exception e) {
+            log.error("[ERROR] Fallo al importar productos desde Odoo: {}", e.getMessage());
         }
     }
 
