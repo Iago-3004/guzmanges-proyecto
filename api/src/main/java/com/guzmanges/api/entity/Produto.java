@@ -48,6 +48,18 @@ public class Produto {
     @Column(precision = 10, scale = 2)
     private BigDecimal precioVenta;
 
+    /**
+     * IVA por defecto del producto, en porcentaje (p. ej. 21.00 para el 21 %).
+     * Es el impuesto que arrastra el producto en Odoo (taxes_id).
+     *
+     * En las líneas de pedido la app autocompleta el IVA con este valor; el
+     * cálculo definitivo lo recalcula Odoo al confirmar, aplicando además la
+     * posición fiscal del cliente (puede mapear el IVA del producto a otro
+     * tipo o exentarlo en operaciones intracomunitarias).
+     */
+    @Column(precision = 5, scale = 2)
+    private BigDecimal iva;
+
     @Column(columnDefinition = "TEXT")
     private String observaciones;
 
