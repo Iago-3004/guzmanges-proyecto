@@ -39,7 +39,7 @@ public class OdooProductoMapper {
         String nombre = OdooValueUtil.getStringValue(odooData, "name");
         produto.setDescripcion(nombre != null ? nombre : "Sin descripción");
 
-        produto.setTipoProduto(OdooValueUtil.getStringValue(odooData, "type"));
+        produto.setTipoProduto(traducirTipo(OdooValueUtil.getStringValue(odooData, "type")));
         produto.setObservaciones(OdooValueUtil.getStringValue(odooData, "description_sale"));
 
         Object stockRaw = odooData.get("qty_available");
@@ -61,6 +61,28 @@ public class OdooProductoMapper {
 
         produto.setFechaModificacion(LocalDateTime.now());
         return produto;
+    }
+
+    /**
+     * Traduce el código interno del campo {@code type} de Odoo (que llega como
+     * "consu", "service"...) al texto en español que se muestra en la app.
+     *
+     * Los códigos de Odoo para product.product.type son estables desde hace
+     * varias versiones; si aparece uno desconocido se devuelve tal cual como
+     * fallback en vez de perderlo.
+     *
+     * @param tipoOdoo código devuelto por Odoo (puede ser null)
+     * @return texto en español para mostrar al usuario, o null si no había código
+     */
+    private String traducirTipo(String tipoOdoo) {
+        if (tipoOdoo == null) return null;
+        return switch (tipoOdoo) {
+            case "consu" -> "Bienes";
+            case "service" -> "Servicio";
+            case "combo" -> "Combinación";
+            case "product" -> "Almacenable";
+            default -> tipoOdoo;
+        };
     }
 
     /**
