@@ -106,6 +106,21 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.inventory_2),
+              title: const Text('Productos'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _irAProductos(context);
+              },
+            ),
+            const ListTile(
+              leading: Icon(Icons.receipt_long),
+              title: Text('Pedidos'),
+              subtitle: Text('Próximamente'),
+              enabled: false,
+            ),
+            const Divider(height: 1),
+            ListTile(
               leading: const Icon(Icons.sync_problem),
               title: const Text('Estado de sincronización'),
               onTap: () {
