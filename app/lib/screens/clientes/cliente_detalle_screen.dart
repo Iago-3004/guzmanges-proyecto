@@ -205,6 +205,11 @@ class _ClienteDetalleScreenState extends State<ClienteDetalleScreen> {
               etiqueta: 'Condición de pago',
               valor: cliente.condicionPagoDescripcion,
             ),
+            _FilaCampo(
+              icono: Icons.account_balance,
+              etiqueta: 'Posición fiscal',
+              valor: cliente.posicionFiscal,
+            ),
           ],
         ),
         _SeccionCard(

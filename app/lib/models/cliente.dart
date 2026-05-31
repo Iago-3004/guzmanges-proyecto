@@ -47,6 +47,13 @@ class Cliente {
   final String? movil;
   final String? email;
 
+  /// Posición fiscal del cliente importada de Odoo (`account.fiscal.position`).
+  /// Es solo descriptiva: la app no la edita ni la usa para calcular impuestos;
+  /// el cálculo definitivo de IVA y recargo de equivalencia lo hace Odoo al
+  /// recibir el pedido. Sirve para informar al usuario de que el cliente está
+  /// sujeto a un régimen especial y los totales pueden cambiar al sincronizar.
+  final String? posicionFiscal;
+
   /// FK al modo de pago en el servidor. La descripción se guarda
   /// denormalizada para poder pintar el listado sin un JOIN extra.
   final int? modoPagoId;
@@ -91,6 +98,7 @@ class Cliente {
     this.telefono,
     this.movil,
     this.email,
+    this.posicionFiscal,
     this.modoPagoId,
     this.modoPagoDescripcion,
     this.condicionPagoId,
@@ -140,6 +148,7 @@ class Cliente {
       telefono: json['telefono'] as String?,
       movil: json['movil'] as String?,
       email: json['email'] as String?,
+      posicionFiscal: json['posicionFiscal'] as String?,
       modoPagoId: modoPago?['id'] as int?,
       modoPagoDescripcion: modoPago?['descripcion'] as String?,
       condicionPagoId: condicionPago?['id'] as int?,
@@ -171,6 +180,7 @@ class Cliente {
       telefono: map['telefono'] as String?,
       movil: map['movil'] as String?,
       email: map['email'] as String?,
+      posicionFiscal: map['posicion_fiscal'] as String?,
       modoPagoId: map['modo_pago_id'] as int?,
       modoPagoDescripcion: map['modo_pago_descripcion'] as String?,
       condicionPagoId: map['condicion_pago_id'] as int?,
@@ -203,6 +213,7 @@ class Cliente {
       'telefono': telefono,
       'movil': movil,
       'email': email,
+      'posicion_fiscal': posicionFiscal,
       'modo_pago_id': modoPagoId,
       'modo_pago_descripcion': modoPagoDescripcion,
       'condicion_pago_id': condicionPagoId,

@@ -13,7 +13,7 @@ class Migraciones {
 
   /// Versión actual del esquema. Hay que incrementarla cada vez que se añada
   /// una nueva versión al mapa [_porVersion].
-  static const int versionActual = 4;
+  static const int versionActual = 5;
 
   /// Sentencias SQL agrupadas por versión.
   ///
@@ -30,6 +30,11 @@ class Migraciones {
   ///   usuario ha confirmado "Crear de todas formas" ante un duplicado local,
   ///   para que al subirlo se envíe con `?forzarAlta=true` y el servidor no
   ///   vuelva a preguntar por la misma coincidencia.
+  /// - **v5**: columna `posicion_fiscal` en `clientes`. Texto descriptivo
+  ///   importado desde Odoo (account.fiscal.position): determina el régimen
+  ///   de impuestos del cliente (recargo de equivalencia, exenciones
+  ///   intracomunitarias, etc.). La app la muestra como información; los
+  ///   cálculos definitivos los aplica Odoo al confirmar el pedido.
   static const Map<int, List<String>> _porVersion = {
     1: [
       '''
@@ -93,6 +98,9 @@ class Migraciones {
     ],
     4: [
       'ALTER TABLE clientes ADD COLUMN forzar_envio INTEGER NOT NULL DEFAULT 0',
+    ],
+    5: [
+      'ALTER TABLE clientes ADD COLUMN posicion_fiscal TEXT',
     ],
   };
 
