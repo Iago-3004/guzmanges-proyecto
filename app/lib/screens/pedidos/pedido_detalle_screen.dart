@@ -83,6 +83,11 @@ class _PedidoDetalleScreenState extends State<PedidoDetalleScreen> {
             const SizedBox(height: 12),
           ],
           _SeccionLineas(lineas: pedido.lineas),
+          if (pedido.observaciones != null &&
+              pedido.observaciones!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _SeccionObservaciones(texto: pedido.observaciones!),
+          ],
           const SizedBox(height: 12),
           _SeccionTotales(pedido: pedido),
           if (pedido.idServidor == null) ...[
@@ -512,6 +517,60 @@ class _FilaLinea extends StatelessWidget {
         .toString()
         .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
     return '$enteroStr,$decimales €';
+  }
+}
+
+// =============================================================================
+// Observaciones (nota del pedido)
+// =============================================================================
+
+/// Bloque que muestra las observaciones del pedido si las hay. Se renderiza
+/// entre las líneas y los totales, replicando el orden en el que aparecen
+/// las notas en el PDF de Odoo (después de las líneas).
+class _SeccionObservaciones extends StatelessWidget {
+  final String texto;
+
+  const _SeccionObservaciones({required this.texto});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.note_alt_outlined,
+                    color: scheme.primary, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'OBSERVACIONES',
+                  style: TextStyle(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              texto,
+              style: const TextStyle(fontSize: 14, height: 1.35),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

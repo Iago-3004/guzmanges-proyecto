@@ -28,4 +28,34 @@ public final class OdooValueUtil {
         }
         return null;
     }
+
+    /**
+     * Convierte texto HTML básico (como el que devuelve Odoo en campos de tipo
+     * {@code html}, p. ej. {@code sale.order.note}) a texto plano. Sustituye
+     * las etiquetas de bloque más comunes por saltos de línea y elimina el
+     * resto, deja también las entidades HTML básicas legibles.
+     *
+     * Lo bastante completo para una nota escrita por un comercial; no pretende
+     * cubrir HTML arbitrario (Odoo no inserta scripts ni estilos en `note`).
+     *
+     * @param html texto con marcado HTML, o null
+     * @return texto plano sin marcado, o null si el resultado queda vacío
+     */
+    public static String htmlAPlano(String html) {
+        if (html == null) return null;
+        String texto = html
+                .replaceAll("(?i)<br\\s*/?>", "\n")
+                .replaceAll("(?i)</p>", "\n")
+                .replaceAll("(?i)</div>", "\n")
+                .replaceAll("(?i)</li>", "\n")
+                .replaceAll("<[^>]+>", "")
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
+                .trim();
+        return texto.isEmpty() ? null : texto;
+    }
 }

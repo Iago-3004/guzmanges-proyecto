@@ -65,7 +65,6 @@ class _SelectorClienteDialogoState extends State<SelectorClienteDialogo> {
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
             child: TextField(
               controller: _buscador,
-              autofocus: true,
               decoration: InputDecoration(
                 hintText: 'Buscar por nombre, razón social o CIF',
                 prefixIcon: const Icon(Icons.search),

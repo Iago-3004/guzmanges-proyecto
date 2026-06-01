@@ -63,7 +63,6 @@ class _SelectorProductoDialogoState extends State<SelectorProductoDialogo> {
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
             child: TextField(
               controller: _buscador,
-              autofocus: true,
               decoration: InputDecoration(
                 hintText: 'Buscar por descripción, referencia o código',
                 prefixIcon: const Icon(Icons.search),

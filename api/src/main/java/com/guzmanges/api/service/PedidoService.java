@@ -156,6 +156,7 @@ public class PedidoService {
         pedido.setFecha(LocalDateTime.now());
         pedido.setEstadoPedido(EstadoPedido.BORRADOR);
         pedido.setEstadoSync(EstadoSync.PENDENTE);
+        pedido.setObservaciones(normalizarObservaciones(request.observaciones()));
         pedido.setFechaModificacion(LocalDateTime.now());
 
         BigDecimal totalBase = BigDecimal.ZERO;
@@ -245,6 +246,17 @@ public class PedidoService {
 
     private BigDecimal ceroSiNull(BigDecimal valor) {
         return valor != null ? valor : BigDecimal.ZERO;
+    }
+
+    /**
+     * Limpia las observaciones recibidas: elimina espacios alrededor y devuelve
+     * null si la cadena queda vacía, para que en BD no quede una cadena en
+     * blanco que luego se enviaría como tal a Odoo.
+     */
+    private String normalizarObservaciones(String valor) {
+        if (valor == null) return null;
+        String limpio = valor.trim();
+        return limpio.isEmpty() ? null : limpio;
     }
 
     /**

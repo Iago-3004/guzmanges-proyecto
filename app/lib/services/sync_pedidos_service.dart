@@ -128,6 +128,7 @@ class SyncPedidosService {
                 recargoEquivalencia: l.recargoEquivalencia,
               ))
           .toList(),
+      observaciones: pedido.observaciones,
     );
 
     try {

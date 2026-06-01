@@ -108,6 +108,11 @@ class Pedido {
   /// null en pedidos antiguos (anteriores a la migración v9).
   final String? usuarioLogin;
 
+  /// Comentario libre del comercial sobre el pedido (alergias, instrucciones
+  /// de entrega, etc.). Opcional; null o cadena vacía si no se ha rellenado.
+  /// Se envía a Odoo como nota tras las líneas del pedido.
+  final String? observaciones;
+
   final DateTime actualizadoEn;
   final DateTime creadoEn;
 
@@ -129,6 +134,7 @@ class Pedido {
     required this.estadoSync,
     this.mensajeError,
     this.usuarioLogin,
+    this.observaciones,
     required this.actualizadoEn,
     required this.creadoEn,
   });
@@ -169,6 +175,7 @@ class Pedido {
       estadoSync: EstadoSync.sincronizado,
       mensajeError: null,
       usuarioLogin: json['usuario'] as String?,
+      observaciones: json['observaciones'] as String?,
       actualizadoEn: ahora,
       creadoEn: creadoEn ?? ahora,
     );
@@ -199,6 +206,7 @@ class Pedido {
       estadoSync: EstadoSync.desdeBackend(map['estado_sync'] as String?),
       mensajeError: map['mensaje_error'] as String?,
       usuarioLogin: map['usuario_login'] as String?,
+      observaciones: map['observaciones'] as String?,
       actualizadoEn:
           DateTime.fromMillisecondsSinceEpoch(map['actualizado_en'] as int),
       creadoEn: DateTime.fromMillisecondsSinceEpoch(map['creado_en'] as int),
@@ -225,6 +233,7 @@ class Pedido {
       'estado_sync': estadoSync.nombreBackend,
       'mensaje_error': mensajeError,
       'usuario_login': usuarioLogin,
+      'observaciones': observaciones,
       'actualizado_en': actualizadoEn.millisecondsSinceEpoch,
       'creado_en': creadoEn.millisecondsSinceEpoch,
     };

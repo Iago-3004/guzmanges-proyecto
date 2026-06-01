@@ -160,6 +160,7 @@ class PedidosProvider extends ChangeNotifier {
   Future<Pedido> crearPedidoLocal({
     required Cliente cliente,
     required List<BorradorLinea> lineas,
+    String? observaciones,
   }) async {
     if (lineas.isEmpty) {
       throw ArgumentError('Un pedido debe tener al menos una línea');
@@ -199,6 +200,7 @@ class PedidosProvider extends ChangeNotifier {
       estadoPedido: EstadoPedido.borrador,
       estadoSync: EstadoSync.pendente,
       usuarioLogin: _usuarioActivo,
+      observaciones: _limpiarObservaciones(observaciones),
       actualizadoEn: ahora,
       creadoEn: ahora,
     );
@@ -220,6 +222,7 @@ class PedidosProvider extends ChangeNotifier {
     required String idLocal,
     required Cliente cliente,
     required List<BorradorLinea> lineas,
+    String? observaciones,
   }) async {
     if (lineas.isEmpty) {
       throw ArgumentError('Un pedido debe tener al menos una línea');
@@ -267,6 +270,7 @@ class PedidosProvider extends ChangeNotifier {
       // preventa edite el pedido — caso teórico, en la práctica solo lo edita
       // quien lo creó).
       usuarioLogin: existente.usuarioLogin,
+      observaciones: _limpiarObservaciones(observaciones),
       actualizadoEn: ahora,
       creadoEn: existente.creadoEn,
     );
@@ -274,6 +278,16 @@ class PedidosProvider extends ChangeNotifier {
     await _dao.actualizar(pedido);
     await recargarDesdeLocal();
     return pedido;
+  }
+
+  /// Normaliza el texto de observaciones para guardar en local: trim y null
+  /// si queda vacío. Si la cadena es null, devuelve null tal cual. Evita
+  /// guardar espacios sueltos o cadenas vacías que luego se enviarían a la
+  /// API y a Odoo.
+  String? _limpiarObservaciones(String? valor) {
+    if (valor == null) return null;
+    final limpio = valor.trim();
+    return limpio.isEmpty ? null : limpio;
   }
 
   /// Reintenta el envío al servidor de un pedido en estado ERRO o PENDENTE

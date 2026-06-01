@@ -77,6 +77,15 @@ public class Pedido {
     @Builder.Default
     private List<LineaPedido> lineas = new ArrayList<>();
 
+    /**
+     * Comentario libre del comercial sobre el pedido (alergias, instrucciones
+     * de entrega, etc.). Se envía a Odoo en el campo {@code note} de
+     * {@code sale.order}, que aparece después de las líneas en el PDF del
+     * pedido. Opcional.
+     */
+    @Column(length = 1000)
+    private String observaciones;
+
     private LocalDateTime fechaModificacion;
 
     /**

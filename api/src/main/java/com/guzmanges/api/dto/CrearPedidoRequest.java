@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 /**
  * Pedido recibido desde la app para crear en la BD local del backend.
@@ -20,6 +21,9 @@ public record CrearPedidoRequest(
 
         @NotEmpty(message = "El pedido debe tener al menos una línea")
         @Valid
-        List<CrearLineaRequest> lineas
+        List<CrearLineaRequest> lineas,
+
+        @Size(max = 1000, message = "Las observaciones no pueden superar 1000 caracteres")
+        String observaciones
 ) {
 }

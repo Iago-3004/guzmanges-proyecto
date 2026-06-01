@@ -32,6 +32,7 @@ public record PedidoResponse(
         BigDecimal totalIva,
         BigDecimal totalRE,
         BigDecimal total,
+        String observaciones,
         LocalDateTime fechaModificacion
 ) {
     /**

@@ -33,6 +33,7 @@ public class PedidoMapper {
                 pedido.getTotalIva(),
                 pedido.getTotalRE(),
                 pedido.getTotal(),
+                pedido.getObservaciones(),
                 pedido.getFechaModificacion()
         );
     }

@@ -13,7 +13,7 @@ class Migraciones {
 
   /// Versión actual del esquema. Hay que incrementarla cada vez que se añada
   /// una nueva versión al mapa [_porVersion].
-  static const int versionActual = 9;
+  static const int versionActual = 10;
 
   /// Sentencias SQL agrupadas por versión.
   ///
@@ -60,6 +60,11 @@ class Migraciones {
   ///   dispositivo compartido cada preventa solo ve sus propios pedidos.
   ///   Coincide con el campo `usuario` del `PedidoResponse` del backend
   ///   (es el `nombreUsuario`/login, no el id numérico).
+  /// - **v10**: columna `observaciones` en `pedidos`. Comentario libre del
+  ///   comercial sobre el pedido (alergias, instrucciones de entrega, etc.).
+  ///   Se envía a Odoo en el campo `note` de `sale.order`, que aparece
+  ///   después de las líneas en el PDF del pedido. Opcional, hasta 1000
+  ///   caracteres (limite del backend).
   static const Map<int, List<String>> _porVersion = {
     1: [
       '''
@@ -197,6 +202,9 @@ class Migraciones {
     9: [
       'ALTER TABLE pedidos ADD COLUMN usuario_login TEXT',
       'CREATE INDEX idx_pedidos_usuario ON pedidos(usuario_login)',
+    ],
+    10: [
+      'ALTER TABLE pedidos ADD COLUMN observaciones TEXT',
     ],
   };
 

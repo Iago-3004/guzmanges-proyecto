@@ -40,6 +40,7 @@ class PedidoFormScreen extends StatefulWidget {
 class _PedidoFormScreenState extends State<PedidoFormScreen> {
   Cliente? _cliente;
   final List<_LineaEditor> _lineas = [];
+  final TextEditingController _observacionesCtrl = TextEditingController();
 
   /// Caches de los selectores: clientes y productos en local. Se cargan
   /// una vez al entrar a la pantalla para que abrir los modales sea
@@ -49,6 +50,10 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
   List<Cliente> _clientesLocales = const [];
   List<Producto> _productosLocales = const [];
   bool _guardando = false;
+
+  /// Límite de caracteres para las observaciones (debe coincidir con
+  /// `@Size(max = 1000)` en el `CrearPedidoRequest` del backend).
+  static const int _maxObservaciones = 1000;
 
   @override
   void initState() {
@@ -111,6 +116,7 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
       _lineas
         ..clear()
         ..addAll(editores);
+      _observacionesCtrl.text = pedido.observaciones ?? '';
     });
   }
 
@@ -119,6 +125,7 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
     for (final l in _lineas) {
       l.dispose();
     }
+    _observacionesCtrl.dispose();
     super.dispose();
   }
 
@@ -155,6 +162,11 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
               onAnadir: _anadirLinea,
               onEliminar: _eliminarLinea,
               onCantidadCambiada: _onCantidadCambiada,
+            ),
+            const SizedBox(height: 20),
+            _SeccionObservaciones(
+              controller: _observacionesCtrl,
+              maxLength: _maxObservaciones,
             ),
             const SizedBox(height: 20),
             _TarjetaTotales(totales: totales),
@@ -212,11 +224,25 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
     );
   }
 
+  /// Cierra cualquier TextField que tenga el foco y pide al SO que oculte
+  /// el teclado. En iOS, un simple `FocusScope.of(context).unfocus()` no
+  /// basta para evitar la restauración del teclado tras navegar a otro
+  /// route: el sistema recuerda el último campo enfocado y al volver
+  /// reabre el teclado. Forzar `TextInput.hide` vía SystemChannels evita
+  /// esa restauración a nivel del SO.
+  void _cerrarTeclado() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+  }
+
   Future<void> _seleccionarCliente() async {
+    _cerrarTeclado();
     final elegido = await SelectorClienteDialogo.mostrar(
       context,
       clientes: _clientesLocales,
     );
+    if (!mounted) return;
+    _cerrarTeclado();
     if (elegido == null) return;
     setState(() {
       _cliente = elegido;
@@ -229,10 +255,13 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
   }
 
   Future<void> _anadirLinea() async {
+    _cerrarTeclado();
     final producto = await SelectorProductoDialogo.mostrar(
       context,
       productos: _productosLocales,
     );
+    if (!mounted) return;
+    _cerrarTeclado();
     if (producto == null) return;
     setState(() {
       final iva = producto.iva ?? 0.0;
@@ -301,16 +330,19 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
                 cantidade: l.cantidade,
               ))
           .toList();
+      final observaciones = _observacionesCtrl.text;
       if (widget.modoEdicion) {
         await provider.actualizarPedidoLocal(
           idLocal: widget.idLocalEditar!,
           cliente: _cliente!,
           lineas: borradores,
+          observaciones: observaciones,
         );
       } else {
         await provider.crearPedidoLocal(
           cliente: _cliente!,
           lineas: borradores,
+          observaciones: observaciones,
         );
       }
       if (!mounted) return;
@@ -509,6 +541,61 @@ class _SeccionLineas extends StatelessWidget {
             onPressed: puedeAnadir ? onAnadir : null,
             icon: const Icon(Icons.add),
             label: const Text('Añadir línea'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Bloque opcional con un comentario libre del comercial. Se envía a Odoo
+/// como nota del pedido (campo `note` de `sale.order`, que aparece tras las
+/// líneas en el PDF). El [maxLength] del TextField duplica el límite real
+/// del backend para que el contador "X/1000" se vea siempre y la app valide
+/// la longitud antes de llamar a la API.
+class _SeccionObservaciones extends StatelessWidget {
+  final TextEditingController controller;
+  final int maxLength;
+
+  const _SeccionObservaciones({
+    required this.controller,
+    required this.maxLength,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.note_alt_outlined, color: scheme.primary, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'OBSERVACIONES',
+              style: TextStyle(
+                color: scheme.primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          maxLength: maxLength,
+          maxLines: 4,
+          minLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'Comentario opcional',
+            border: OutlineInputBorder(),
+            isDense: true,
+            contentPadding:
+                EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
         ),
       ],

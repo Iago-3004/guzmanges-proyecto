@@ -45,7 +45,8 @@ public class OdooPedidoRepository {
      */
     private static final List<String> FIELDS_COMPLETO = List.of(
             "id", "name", "partner_id", "user_id", "date_order", "state",
-            "amount_untaxed", "amount_tax", "amount_total", "order_line", "write_date");
+            "amount_untaxed", "amount_tax", "amount_total", "order_line",
+            "note", "write_date");
 
     /**
      * Campos por línea ({@code sale.order.line}) suficientes para reconstruir
@@ -86,6 +87,13 @@ public class OdooPedidoRepository {
         }
         if (pedido.getFecha() != null) {
             values.put("date_order", pedido.getFecha().format(ODOO_DATETIME));
+        }
+        // El campo `note` de sale.order se renderiza después de las líneas en
+        // el PDF del pedido. Solo lo enviamos si hay texto: si no, dejamos que
+        // Odoo aplique su valor por defecto (vacío) y evitamos pisar notas
+        // configuradas en la plantilla del partner.
+        if (pedido.getObservaciones() != null && !pedido.getObservaciones().isBlank()) {
+            values.put("note", pedido.getObservaciones());
         }
 
         List<Object> orderLines = new ArrayList<>();

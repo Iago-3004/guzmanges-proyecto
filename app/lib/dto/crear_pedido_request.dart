@@ -14,16 +14,25 @@ class CrearPedidoRequest {
   /// Líneas a crear. Debe haber al menos una (la API lo valida).
   final List<CrearLineaRequest> lineas;
 
+  /// Comentario libre del comercial. Opcional. El backend lo limita a 1000
+  /// caracteres y lo envía a Odoo como nota del pedido.
+  final String? observaciones;
+
   const CrearPedidoRequest({
     required this.clienteId,
     required this.lineas,
+    this.observaciones,
   });
 
   Map<String, dynamic> toJson() {
-    return {
+    final mapa = <String, dynamic>{
       'clienteId': clienteId,
       'lineas': lineas.map((l) => l.toJson()).toList(),
     };
+    if (observaciones != null && observaciones!.isNotEmpty) {
+      mapa['observaciones'] = observaciones;
+    }
+    return mapa;
   }
 }
 

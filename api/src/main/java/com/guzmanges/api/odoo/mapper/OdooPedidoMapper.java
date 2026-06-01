@@ -98,6 +98,12 @@ public class OdooPedidoMapper {
         pedido.setTotalIva(leerImporte(datosOdoo, "amount_tax"));
         pedido.setTotalRE(BigDecimal.ZERO.setScale(2));
         pedido.setTotal(leerImporte(datosOdoo, "amount_total"));
+        // El campo `note` de sale.order es de tipo html en Odoo: aunque se
+        // escriba como texto plano, lo devuelve envuelto en `<p>...</p>`. Lo
+        // pasamos a texto plano para que la app lo muestre legible y para no
+        // contaminar MySQL con marcado.
+        pedido.setObservaciones(OdooValueUtil.htmlAPlano(
+                OdooValueUtil.getStringValue(datosOdoo, "note")));
         pedido.setFechaModificacion(LocalDateTime.now());
         pedido.setFechaModificacionOdoo(parsearFecha(datosOdoo.get("write_date")));
 
@@ -181,6 +187,7 @@ public class OdooPedidoMapper {
         destino.setTotalIva(desdeOdoo.getTotalIva());
         destino.setTotalRE(desdeOdoo.getTotalRE());
         destino.setTotal(desdeOdoo.getTotal());
+        destino.setObservaciones(desdeOdoo.getObservaciones());
         destino.setFechaModificacion(LocalDateTime.now());
         destino.setFechaModificacionOdoo(desdeOdoo.getFechaModificacionOdoo());
     }
