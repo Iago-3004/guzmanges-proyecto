@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <title>GuzmanGes — Defensa del TFC</title>
+
+  <!--
+    Presentación con reveal.js cargada por CDN.
+    Estructura: ~70 % pitch comercial · ~30 % técnico.
+  -->
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+
+  <style>
+    :root {
+      --bg-deep:     #06070d;
+      --bg-base:     #0c1020;
+      --bg-card:     rgba(255, 255, 255, 0.04);
+      --bg-card-hi:  rgba(255, 255, 255, 0.07);
+      --border:      rgba(255, 255, 255, 0.08);
+      --text:        #f8fafc;
+      --text-muted:  #b4bccb;
+      --text-dim:    #7a8499;
+      --brand:       #6366f1;
+      --brand-light: #818cf8;
+      --brand-dim:   #4f46e5;
+      --accent:      #f97316;
+      --accent-light:#fb923c;
+      --success:     #10b981;
+      --gradient:    linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+    }
+
+    /* ===== reset/base ===== */
+    html, body { background: var(--bg-deep); }
+    .reveal-viewport { background: radial-gradient(ellipse at top, #1a1f3a 0%, var(--bg-deep) 60%) !important; }
+
+    .reveal {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-weight: 400;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .reveal section { text-align: left; }
+    .reveal section.center { text-align: center; }
+
+    /* ===== tipografía (tamaños intermedios entre la versión grande y la pequeña) ===== */
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+      color: var(--text);
+      text-transform: none;
+      letter-spacing: -0.025em;
+      font-weight: 800;
+      margin: 0 0 0.45em 0;
+      line-height: 1.1;
+    }
+    .reveal h1 { font-size: 4em; font-weight: 900; }
+    .reveal h2 { font-size: 2.8em; }
+    .reveal h3 { font-size: 1.6em; }
+    .reveal h4 { font-size: 1.05em; font-weight: 600; color: var(--text-muted); }
+    .reveal p { line-height: 1.55; font-size: 1.1em; }
+    .reveal strong { color: var(--text); font-weight: 700; }
+    .reveal em { font-style: normal; color: var(--brand-light); font-weight: 600; }
+    .reveal code {
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(99, 102, 241, 0.12);
+      color: var(--brand-light);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.88em;
+    }
+
+    /* ===== utility classes ===== */
+    .eyebrow {
+      display: inline-block;
+      font-size: 0.8em;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--brand-light);
+      margin-bottom: 18px;
+      padding: 5px 16px;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 999px;
+    }
+    .subtitle {
+      font-size: 1.5em;
+      color: var(--text-muted);
+      font-weight: 400;
+      max-width: 900px;
+      line-height: 1.4;
+    }
+    .gradient-text {
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .footnote { color: var(--text-dim); font-size: 0.75em; }
+
+    /* ===== cards ===== */
+    .card-grid {
+      display: grid;
+      gap: 20px;
+      margin-top: 30px;
+    }
+    .card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+    .card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .card-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 26px;
+      transition: all 0.3s;
+    }
+    .card:hover {
+      background: var(--bg-card-hi);
+      border-color: rgba(99, 102, 241, 0.4);
+      transform: translateY(-2px);
+    }
+    .card .icon {
+      font-size: 2.4em;
+      margin-bottom: 14px;
+      display: block;
+      line-height: 1;
+    }
+    .card h3 {
+      font-size: 1.15em;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .card p {
+      font-size: 0.85em;
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    /* ===== two columns ===== */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      align-items: start;
+    }
+    .two-col h3 {
+      font-size: 1.25em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+    .two-col ul { list-style: none; padding: 0; margin: 0; }
+    .two-col li {
+      padding: 12px 0;
+      font-size: 1em;
+      border-bottom: 1px solid var(--border);
+    }
+    .two-col li:last-child { border: none; }
+
+    /* ===== check / cross lists ===== */
+    .check-list, .cross-list { list-style: none; padding: 0; }
+    .check-list li, .cross-list li {
+      padding: 10px 0 10px 38px;
+      position: relative;
+      font-size: 1em;
+      line-height: 1.55;
+    }
+    .check-list li::before, .cross-list li::before {
+      position: absolute;
+      left: 0;
+      top: 10px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 26px;
+      font-size: 0.8em;
+      font-weight: 700;
+    }
+    .check-list li::before {
+      content: '✓';
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+    }
+    .cross-list li::before {
+      content: '✕';
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+    }
+    .cross-list li { color: var(--text-muted); }
+
+    /* ===== code blocks ===== */
+    .reveal pre {
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin: 20px 0;
+    }
+    .reveal pre code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      line-height: 1.55;
+      padding: 26px;
+      max-height: 55vh;
+      background: #0f172a !important;
+    }
+
+    /* ===== quotes ===== */
+    .reveal blockquote {
+      background: var(--bg-card);
+      border: none;
+      border-left: 4px solid var(--brand);
+      padding: 24px 32px;
+      box-shadow: none;
+      font-style: normal;
+      font-size: 1.2em;
+      line-height: 1.5;
+      border-radius: 0 12px 12px 0;
+    }
+
+    /* ===== images ===== */
+    .reveal img.diagram {
+      background: #fafafa;
+      border-radius: 10px;
+      padding: 18px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      max-height: 62vh;
+      max-width: 90%;
+      object-fit: contain;
+    }
+    .reveal img.logo-hero {
+      width: 240px;
+      filter: drop-shadow(0 10px 40px rgba(99, 102, 241, 0.4));
+    }
+    .reveal img.logo-small {
+      width: 90px;
+      opacity: 0.9;
+    }
+
+    /* ===== tags / pills ===== */
+    .tags { margin-top: 24px; }
+    .tag {
+      display: inline-block;
+      padding: 7px 16px;
+      border-radius: 999px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.8em;
+      font-weight: 500;
+      margin: 5px;
+    }
+    .tag.brand {
+      background: rgba(99, 102, 241, 0.12);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: var(--brand-light);
+    }
+
+    /* ===== reveal overrides ===== */
+    .reveal .progress { color: var(--brand); }
+    .reveal .controls { color: var(--text-muted); }
+    .reveal .slide-number {
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-size: 0.6em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+
+    /* timeline horizontal */
+    .timeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 30px; }
+    .timeline .step {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 18px;
+      text-align: center;
+    }
+    .timeline .step .emoji { font-size: 2.4em; line-height: 1; margin-bottom: 10px; }
+    .timeline .step .hora { font-size: 1.1em; font-weight: 700; color: var(--brand-light); margin-bottom: 8px; }
+    .timeline .step p { font-size: 0.85em; color: var(--text-muted); margin: 0; line-height: 1.5; }
+
+    /* card resaltada (la "respuesta" en comparativas) */
+    .card.highlight {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(236, 72, 153, 0.10));
+      border: 1px solid rgba(129, 140, 248, 0.6);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.15);
+      position: relative;
+    }
+    .card.highlight::before {
+      content: '✦';
+      position: absolute;
+      top: 14px;
+      right: 18px;
+      color: var(--brand-light);
+      font-size: 1.3em;
+    }
+    .card.highlight h3 { color: var(--brand-light); }
+    .card.highlight p { color: var(--text); }
+    .card .mini-list { list-style: none; padding: 0; margin: 12px 0 0 0; font-size: 0.85em; }
+    .card .mini-list li {
+      padding: 6px 0 6px 26px;
+      position: relative;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+    .card .mini-list li::before {
+      position: absolute;
+      left: 0;
+      top: 6px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 20px;
+      font-size: 0.7em;
+      font-weight: 700;
+    }
+    .card .mini-list li.bad::before {
+      content: '✕';
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+    }
+    .card .mini-list li.good::before {
+      content: '✓';
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+    }
+    .card.highlight .mini-list li.good { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<div class="reveal">
+  <div class="slides">
+
+    <!-- ================================================================
+         1. PORTADA
+    ================================================================= -->
+    <section class="center" data-background-gradient="radial-gradient(ellipse at center, #1e1b4b 0%, #06070d 70%)">
+      <img src="../app/assets/logo_guzmanges.png" alt="GuzmanGes" class="logo-hero" style="margin-bottom: 30px;">
+      <h1 class="gradient-text" style="margin-bottom: 14px;">GuzmanGes</h1>
+      <p class="subtitle" style="margin: 0 auto;">
+        Pedidos en el móvil, sincronizados con tu ERP.
+      </p>
+      <p style="margin-top: 100px; color: var(--text-dim); font-size: 0.85em;">
+        Iago Guzmán &middot; Proyecto Final &middot; DAM 2025/2026
+      </p>
+    </section>
+
+    <!-- ================================================================
+         2. PROBLEMA
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">El punto de partida</span>
+      <h2>El comercial visita al cliente.<br>
+        <span class="gradient-text">¿Y después qué?</span></h2>
+      <p class="subtitle" style="margin-top: 30px;">
+        Hoy en día, muchos comerciales aún trabajan así:
+      </p>
+      <ul class="cross-list" style="margin-top: 30px; max-width: 900px;">
+        <li>Apuntan los pedidos <strong>en papel o en una libreta</strong>.</li>
+        <li>Vuelven a la oficina y los <strong>transcriben uno por uno</strong> al ERP.</li>
+        <li>No pueden consultar <strong>stock real ni precios</strong> delante del cliente.</li>
+        <li>Si el cliente pide darse de alta, generan <strong>datos duplicados</strong> por las prisas.</li>
+      </ul>
+    </section>
+
+    <!-- ================================================================
+         3. SOLUCIÓN — FRASE
+    ================================================================= -->
+    <section class="center" data-background-gradient="linear-gradient(180deg, #06070d 0%, #1e1b4b 50%, #06070d 100%)">
+      <span class="eyebrow">La solución</span>
+      <h1 style="font-size: 3em; margin-bottom: 36px;">
+        Una aplicación móvil que <span class="gradient-text">funciona sin conexión</span><br>
+        y se sincroniza con el ERP <span class="gradient-text">en tiempo real</span>.
+      </h1>
+      <p class="subtitle" style="margin: 0 auto;">
+        Captura el pedido en el momento. Funciona sin Wi-Fi.<br>
+        Cuando hay red, todo fluye hacia el ERP.
+      </p>
+    </section>
+
+    <!-- ================================================================
+         4. ANTES vs DESPUÉS
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">El cambio</span>
+      <h2>Cómo cambia el día a día</h2>
+      <div class="two-col" style="margin-top: 40px;">
+        <div>
+          <h3>Sin GuzmanGes</h3>
+          <ul class="cross-list">
+            <li>Libreta, bolígrafo, hojas sueltas</li>
+            <li>Errores al transcribir las notas al sistema</li>
+            <li>Sin stock real hasta llamar a la oficina</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Con GuzmanGes</h3>
+          <ul class="check-list">
+            <li>Pedido capturado <strong>en el móvil</strong>, en el momento</li>
+            <li>Catálogo <strong>con stock y precios actualizados</strong></li>
+            <li>Funciona sin cobertura</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         5. QUÉ HACE LA APP
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">Funcionalidades</span>
+      <h2>Qué hace la app</h2>
+      <div class="card-grid cols-2" style="margin-top: 30px;">
+        <div class="card">
+          <span class="icon">👥</span>
+          <h3>Gestión de clientes</h3>
+          <p>Listado, búsqueda por nombre, razón social o CIF, alta de nuevos clientes con validación oficial de CIF/NIF y detección de duplicados. Sincronización bidireccional con Odoo.</p>
+        </div>
+        <div class="card">
+          <span class="icon">📦</span>
+          <h3>Catálogo de productos</h3>
+          <p>Stock y precios sincronizados desde Odoo, disponibles sin conexión. Búsqueda por descripción, referencia o código de barras. Imprescindible cuando el comercial atiende a varios clientes en un día.</p>
+        </div>
+        <div class="card">
+          <span class="icon">🧾</span>
+          <h3>Creación de pedidos</h3>
+          <p>Selección de cliente, añadido de líneas con totales en vivo, observaciones libres. Cálculo automático de IVA y recargo de equivalencia según la posición fiscal del cliente.</p>
+        </div>
+        <div class="card">
+          <span class="icon">🔄</span>
+          <h3>Sincronización inteligente</h3>
+          <p>Funciona sin Wi-Fi y sube todo a Odoo cuando vuelve la red. Detecta clientes y pedidos cancelados en el ERP y los hace desaparecer de la app automáticamente.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         6. DEMOSTRACIÓN — DÍA TIPO
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">Cómo se usa</span>
+      <h2>Un día tipo</h2>
+      <div class="timeline">
+        <div class="step">
+          <div class="emoji">☀️</div>
+          <div class="hora">8:30</div>
+          <p>Inicio sesión. La app <strong>se sincroniza</strong> y descarga productos y clientes actualizados.</p>
+        </div>
+        <div class="step">
+          <div class="emoji">🏬</div>
+          <div class="hora">10:00</div>
+          <p>Visito a un cliente sin cobertura. Capturo un <strong>pedido nuevo</strong>, queda en local.</p>
+        </div>
+        <div class="step">
+          <div class="emoji">🆕</div>
+          <div class="hora">12:30</div>
+          <p>Doy de alta un <strong>cliente nuevo</strong> y le hago ya el pedido. Todo sin red.</p>
+        </div>
+        <div class="step">
+          <div class="emoji">📲</div>
+          <div class="hora">14:00</div>
+          <p>Pulso <em>Sincronizar</em>. Todo sube a Odoo <strong>en segundos</strong>.</p>
+        </div>
+      </div>
+      <p style="margin-top: 40px; text-align: center; color: var(--text-muted);">
+        Mientras en el modelo antiguo seguiría transcribiendo notas hasta la noche,
+        <span class="gradient-text" style="font-weight: 600;">aquí ya he terminado.</span>
+      </p>
+    </section>
+
+    <!-- ================================================================
+         7. POR QUÉ HACE FALTA — HUECO DEL MERCADO
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">El hueco del mercado</span>
+      <h2>¿Por qué hace falta GuzmanGes?</h2>
+      <p class="subtitle" style="margin-top: 14px;">
+        Para <strong>Odoo 18 Community</strong> no existe una alternativa que combine
+        precio razonable, soporte offline y compatibilidad sin Enterprise.
+      </p>
+      <div class="card-grid cols-3" style="margin-top: 26px;">
+        <div class="card">
+          <span class="icon">📱</span>
+          <h3>App oficial de Odoo Sales</h3>
+          <ul class="mini-list">
+            <li class="bad">Requiere Odoo Enterprise (licencia anual)</li>
+            <li class="bad">Necesita conexión permanente</li>
+            <li class="bad">Pensada para vendedores con CRM, no para preventa de ruta</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="icon">💸</span>
+          <h3>Apps de terceros</h3>
+          <ul class="mini-list">
+            <li class="bad">Suscripción mensual por usuario</li>
+            <li class="bad">Las que conocemos exigen más infraestructura o un servicio en la nube</li>
+            <li class="bad">Dependencia de un proveedor externo</li>
+          </ul>
+        </div>
+        <div class="card highlight">
+          <span class="icon">✨</span>
+          <h3>GuzmanGes</h3>
+          <ul class="mini-list">
+            <li class="good">Compatible con Odoo Community</li>
+            <li class="good">Funciona sin conexión</li>
+            <li class="good">Pensada específicamente para preventa de ruta</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         8. TRANSICIÓN: TÉCNICA
+    ================================================================= -->
+    <section class="center" data-background-gradient="radial-gradient(ellipse at center, #1e1b4b 0%, #06070d 70%)">
+      <span class="eyebrow">Cómo está hecho</span>
+      <h1 style="font-size: 4em;">La parte<br><span class="gradient-text">técnica</span></h1>
+      <p class="subtitle" style="margin: 30px auto 0;">
+        Stack, arquitectura, retos durante el desarrollo.
+      </p>
+    </section>
+
+    <!-- ================================================================
+         9. STACK TECNOLÓGICO
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">Construido con</span>
+      <h2>Stack tecnológico</h2>
+      <div class="card-grid cols-3" style="margin-top: 30px;">
+        <div class="card">
+          <span class="icon">📱</span>
+          <h3>App móvil</h3>
+          <p><strong>Flutter 3.35</strong> (Dart)<br>Provider · sqflite · Dio<br><br>
+          <em>Un solo código para Android e iOS.</em></p>
+        </div>
+        <div class="card">
+          <span class="icon">⚙️</span>
+          <h3>Backend</h3>
+          <p><strong>Spring Boot 4.0</strong> (Java 21)<br>Spring Security · JPA · JWT<br><br>
+          <em>API REST documentada con OpenAPI.</em></p>
+        </div>
+        <div class="card">
+          <span class="icon">🗄️</span>
+          <h3>Base de datos</h3>
+          <p><strong>MySQL 8.0</strong> central<br><strong>SQLite</strong> en el móvil<br><br>
+          <em>Caché local + cola de pendientes.</em></p>
+        </div>
+        <div class="card">
+          <span class="icon">🏢</span>
+          <h3>ERP</h3>
+          <p><strong>Odoo</strong> (XML-RPC)<br>res.partner · product.product · sale.order<br><br>
+          <em>Integración bidireccional.</em></p>
+        </div>
+        <div class="card">
+          <span class="icon">🐳</span>
+          <h3>Despliegue</h3>
+          <p><strong>Docker</strong> + Compose<br>Imagen ligera y reinicio automático<br><br>
+          <em>Levantar el backend con un solo comando.</em></p>
+        </div>
+        <div class="card">
+          <span class="icon">🚀</span>
+          <h3>CI/CD</h3>
+          <p><strong>GitHub Actions</strong><br>APK + IPA + imagen Docker<br><br>
+          <em>Releases automáticas en cada tag.</em></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         10. DIAGRAMA DE DESPLIEGUE
+    ================================================================= -->
+    <section class="center">
+      <span class="eyebrow">Arquitectura</span>
+      <h2 style="margin-bottom: 20px;">Diagrama de despliegue</h2>
+      <img src="Diagrama de Despliegue.png" alt="Diagrama de despliegue" class="diagram">
+    </section>
+
+    <!-- ================================================================
+         11. PORTADA DE SECCIÓN — DIFICULTADES
+    ================================================================= -->
+    <section class="center" data-background-gradient="radial-gradient(ellipse at center, #1e1b4b 0%, #06070d 70%)">
+      <span class="eyebrow">Durante el desarrollo</span>
+      <h1 style="font-size: 3.6em;">Dificultades técnicas<br><span class="gradient-text">encontradas</span></h1>
+      <p class="subtitle" style="margin: 30px auto 0;">
+        Tres problemas reales que aparecieron durante el desarrollo
+        y cómo se resolvieron.
+      </p>
+    </section>
+
+    <!-- ================================================================
+         12. DIFICULTAD Nº 1 — RECONCILIACIÓN DE BORRADOS
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">Dificultad nº 1</span>
+      <h2>Reconciliación de borrados</h2>
+      <p class="subtitle" style="margin-top: 16px;">
+        Si la sincronización es incremental, ¿cómo se entera la app de que un cliente se ha borrado en el ERP?
+      </p>
+      <div class="two-col" style="margin-top: 30px;">
+        <div>
+          <h3>El problema</h3>
+          <p style="font-size: 1em; color: var(--text-muted);">
+            La app pide los clientes modificados desde X. Pero <strong>un cliente borrado ya no existe</strong>: el servidor no puede devolverlo, así que la app no se entera y se le queda <em>para siempre</em>.
+          </p>
+        </div>
+        <div>
+          <h3>La solución</h3>
+          <p style="font-size: 1em; color: var(--text-muted);">
+            El backend <strong>nunca borra físicamente</strong>: marca <code>activo = false</code> y actualiza <code>fechaModificacion</code>. La app recibe esa actualización y filtra por los activos.
+          </p>
+        </div>
+      </div>
+      <p class="footnote" style="margin-top: 30px;">
+        Mismo principio aplicado a pedidos cancelados o eliminados en Odoo.
+      </p>
+    </section>
+
+    <!-- ================================================================
+         13. DIFICULTAD Nº 2 — PROVINCIAS COMO OBJETOS EN ODOO
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">Dificultad nº 2</span>
+      <h2>Provincias: no son texto, son objetos</h2>
+      <p class="subtitle" style="margin-top: 16px;">
+        Odoo no guarda la provincia como una cadena, sino como un registro de <code>res.country.state</code> con su propio ID.
+      </p>
+      <div class="two-col" style="margin-top: 30px;">
+        <div>
+          <h3>El problema</h3>
+          <p style="font-size: 1em; color: var(--text-muted);">
+            Al dar de alta un cliente desde la app hay que enviarle a Odoo el <strong>ID exacto</strong> de la provincia. Pero el comercial escribe "Coruña", "A Coruña", "LA CORUÑA"… y cualquier variación que no coincida exactamente impide crear el cliente.
+          </p>
+        </div>
+        <div>
+          <h3>La solución</h3>
+          <p style="font-size: 1em; color: var(--text-muted);">
+            El backend descarga el <strong>catálogo completo de provincias españolas</strong> desde Odoo, lo cachea, y al recibir un alta hace un <em>matching normalizado</em> (sin tildes, sin mayúsculas, sin artículos) para resolver el ID correcto antes de enviar a Odoo.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         14. DIFICULTAD Nº 3 — iOS UX
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">Dificultad nº 3</span>
+      <h2>iOS es... <em>iOS</em></h2>
+      <p style="margin-top: 20px;">
+        Tres bugs específicos de iOS que no se reproducen en el simulador ni en Android:
+      </p>
+      <ul class="check-list" style="margin-top: 24px;">
+        <li>El teclado numérico <strong>no tiene botón "Hecho"</strong>: solución con tap fuera + scroll dismiss.</li>
+        <li>Al volver de un selector, iOS <strong>restaura el foco</strong> al TextField anterior y reabre el teclado: solución forzando <code>TextInput.hide</code> a nivel del SO.</li>
+        <li>El <strong>build de IPA sin firma</strong> no es trivial: hay que empaquetar manualmente el <code>.app</code> dentro de <code>Payload/</code>.</li>
+      </ul>
+    </section>
+
+    <!-- ================================================================
+         13. SEGURIDAD
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">Seguridad</span>
+      <h2>Cómo se protegen los datos</h2>
+      <div class="card-grid cols-2" style="margin-top: 30px;">
+        <div class="card">
+          <h3>🔐 Autenticación</h3>
+          <p>JWT con HMAC SHA-256, caducidad 24 h. Contraseñas con <strong>BCrypt</strong>.</p>
+        </div>
+        <div class="card">
+          <h3>👤 Autorización</h3>
+          <p>Roles ADMIN vs PREVENTA. Cada preventa <strong>solo ve sus propios pedidos</strong>.</p>
+        </div>
+        <div class="card">
+          <h3>🛡️ Validaciones</h3>
+          <p>Bean Validation en el backend + validación en cliente (CIF/NIF) antes del POST.</p>
+        </div>
+        <div class="card">
+          <h3>🔑 Secrets fuera del código</h3>
+          <p>Variables de entorno (.env) para JWT, MySQL y Odoo. Nada hardcodeado.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         14. DESPLIEGUE EN 3 COMANDOS
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">Puesta en marcha</span>
+      <h2>Tan simple como tres comandos</h2>
+      <pre><code data-trim data-noescape class="bash">
+cp .env.example .env       # 1. Copiar plantilla de variables
+# editar .env con las credenciales reales...
+docker compose up -d --build
+                           # 2. Levantar todo (API + MySQL)
+# fin.                     # 3. Abrir http://servidor:8080/swagger-ui.html
+      </code></pre>
+      <p style="margin-top: 28px; color: var(--text-muted);">
+        Acompañado de un <strong>workflow de CI/CD</strong> que genera automáticamente
+        APK, IPA e imagen Docker en cada release de GitHub. <em>Cero trabajo manual de empaquetado.</em>
+      </p>
+    </section>
+
+    <!-- ================================================================
+         15. LIMITACIONES Y FUTURO
+    ================================================================= -->
+    <section>
+      <span class="eyebrow">Estado actual</span>
+      <h2>Limitaciones y líneas futuras</h2>
+      <div class="two-col" style="margin-top: 30px;">
+        <div>
+          <h3>Limitaciones conocidas</h3>
+          <ul class="cross-list">
+            <li>Los usuarios de la app no pueden gestionarse desde la propia app: hay que hacerlo desde los endpoints REST.</li>
+            <li>Los productos no tienen foto asociada en la app.</li>
+            <li>No existe una vista del catálogo de productos a modo de escaparate visual.</li>
+            <li>La sincronización es solo bajo demanda, no en segundo plano.</li>
+            <li>El IPA de iOS no está firmado oficialmente (re-firma cada 7 días con sideloading).</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Líneas futuras</h3>
+          <ul class="check-list">
+            <li>Modelo de licencias por usuario para distribución comercial.</li>
+            <li>Soporte de descuentos en los pedidos e integración con las pricelists y ofertas configuradas en Odoo.</li>
+            <li>Endpoint público de recuperación de contraseña con verificación por email.</li>
+            <li>Sincronización en segundo plano cuando hay Wi-Fi.</li>
+            <li>Soporte multi-empresa en un mismo despliegue.</li>
+            <li>Líneas de pedido con tipos especiales (sección, nota) según se configuren en Odoo.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         16. GRACIAS / PREGUNTAS
+    ================================================================= -->
+    <section class="center" data-background-gradient="radial-gradient(ellipse at top, #1e1b4b 0%, #06070d 80%)">
+      <img src="../app/assets/logo_guzmanges.png" alt="GuzmanGes" class="logo-small" style="margin-bottom: 20px;">
+      <h1 class="gradient-text" style="font-size: 5em; margin-bottom: 20px;">Gracias</h1>
+      <p style="font-size: 1.4em; color: var(--text-muted);">
+        ¿Alguna pregunta?
+      </p>
+      <p style="margin-top: 80px; color: var(--text-dim); font-size: 0.8em;">
+        Iago Guzmán &middot; DAM 2º &middot; 2025/2026
+      </p>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/zoom/zoom.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: 'c/t',
+    transition: 'fade',
+    transitionSpeed: 'default',
+    backgroundTransition: 'fade',
+    controls: true,
+    progress: true,
+    center: true,
+    width: 1280,
+    height: 800,
+    margin: 0.06,
+    plugins: [ RevealHighlight, RevealNotes, RevealZoom ]
+  });
+</script>
+
+</body>
+</html>

@@ -1,189 +1,357 @@
-# 📱 GuzmanGes — App de Gestión de Preventa
+# GuzmanGes — App de Gestión de Preventa
 
-**GuzmanGes** es una aplicación móvil de preventa diseñada para optimizar la gestión comercial y el proceso de toma de pedidos por parte de los representantes de ventas (preventas). Permite consultar clientes, productos y el histórico de pedidos sincronizados desde el ERP **Odoo**, así como registrar nuevos pedidos y dar de alta clientes durante la visita comercial.
+**GuzmanGes** es una solución completa de preventa móvil para representantes comerciales, conectada con el ERP **Odoo 18 Community**. Permite consultar clientes y productos, dar de alta nuevos clientes y registrar pedidos durante la visita comercial, con sincronización bidireccional contra Odoo y funcionamiento totalmente offline.
+
+Proyecto Final de Ciclo del título **Desarrollo de Aplicaciones Multiplataforma** (DAM).
 
 ---
 
-## 🧱 Arquitectura
+## Arquitectura
 
-El proyecto se organiza como **monorepo** con tres componentes:
+Monorepo con tres componentes:
 
 ```
 guzmanges-proyecto/
-├── api/    →  Backend: API REST (Spring Boot + MySQL)
-├── app/    →  Frontend: aplicación móvil (Flutter)
-└── doc/    →  Documentación del proyecto (memoria, diagramas)
+├── api/                 →  Backend: API REST (Spring Boot + MySQL)
+├── app/                 →  App móvil (Flutter, Android + iOS)
+├── doc/                 →  Documentación (memoria, manuales, diagramas)
+├── docker-compose.yml   →  Despliegue API + MySQL
+└── .github/workflows/   →  CI: build & release de los artefactos
 ```
 
 ```
 ┌──────────────┐    REST/JWT    ┌──────────────┐   XML-RPC   ┌──────────┐
 │   Flutter    │ ◄────────────► │ Spring Boot  │ ◄─────────► │   Odoo   │
-│  (móvil)     │                │   + MySQL    │             │  (ERP)   │
-│  SQLite local│                │              │             │          │
+│  (Android/iOS)│               │   + MySQL    │             │   18 CE  │
+│  SQLite local│                │  + Actuator  │             │          │
 └──────────────┘                └──────────────┘             └──────────┘
 ```
 
-- **Odoo** es el sistema maestro de clientes, productos y catálogos.
-- **Spring Boot** actúa como capa intermedia: sincroniza datos de Odoo a MySQL y expone una API REST.
-- **Flutter** consume la API y mantiene una caché local en SQLite para trabajar sin conexión.
+- **Odoo 18 Community** es el sistema maestro de clientes, productos, pedidos y catálogos (modos y condiciones de pago).
+- **Spring Boot 4** actúa como capa intermedia: importa de Odoo a MySQL, expone una API REST con JWT y reenvía a Odoo las altas creadas desde la app.
+- **Flutter** consume la API y mantiene una caché local en SQLite. La app es **offline-first**: el comercial puede operar sin red y la sincronización se dispara a demanda.
 
 ---
 
-## 🛠️ Tecnologías
+## Tecnologías
 
-| Componente | Tecnología |
+| Capa | Tecnología |
 |---|---|
-| Frontend | Flutter (Dart) — Android / iOS |
-| Backend | Spring Boot 4 · Java 21 |
-| Base de datos | MySQL |
-| Caché local | SQLite (modo offline) |
-| Autenticación | Spring Security + JWT |
-| Integración ERP | Odoo (XML-RPC) |
-| Build | Maven (backend) · Flutter SDK (frontend) |
+| App móvil | Flutter 3.35 (Dart) — Android e iOS |
+| Estado | Provider |
+| Almacenamiento local | SQLite (`sqflite`) + `flutter_secure_storage` |
+| HTTP | Dio |
+| Backend | Spring Boot 4.0.5 · Java 21 |
+| Persistencia | Spring Data JPA · MySQL 8 |
+| Seguridad | Spring Security + JWT (`jjwt` 0.12) |
+| Integración ERP | Odoo 18 Community (XML-RPC) |
+| Documentación API | springdoc-openapi 2.8 (Swagger UI + OpenAPI 3) |
+| Observabilidad | Spring Boot Actuator (health) |
+| Build | Maven (api) · Flutter SDK (app) |
+| Despliegue | Docker · Docker Compose |
+| CI/CD | GitHub Actions (build & release de APK, IPA y imagen Docker) |
 
 ---
 
-## ✨ Funcionalidades
+## Funcionalidades
 
-- 🔐 Autenticación con JWT y roles (administrador / preventa).
-- 👥 Consulta de la cartera de clientes y alta de nuevos clientes.
-- 📦 Consulta del catálogo de productos con precios y stock.
-- 🧾 Creación, edición y envío de pedidos.
-- 📋 Histórico de pedidos por cliente (app + Odoo).
-- 🔄 Sincronización bidireccional con Odoo.
-- 📴 Funcionamiento offline con cola de envío y sincronización al recuperar la conexión.
+- Autenticación con JWT y dos roles: **administrador** y **preventa**.
+- Configuración inicial de la URL del servidor desde la app, con verificación contra `/actuator/health`.
+- Gestión de **clientes**: consulta, alta con validación estructural de CIF/NIF/NIE, resolución de duplicados, propagación de la posición fiscal desde Odoo.
+- Catálogo de **productos**: consulta con stock, precio y código de barras (read-only; se gestionan en Odoo).
+- **Pedidos**: alta con líneas, cálculo de totales provisionales en la app (recálculo definitivo tras envío a Odoo), histórico filtrado por preventa.
+- **Sincronización bidireccional** con Odoo:
+  - Descendente: maestros, productos, clientes, pedidos.
+  - Ascendente: altas de clientes y pedidos pendientes, con resolución de dependencias (un pedido espera a que su cliente esté sincronizado).
+- **Offline-first**: identidad dual (UUID local + id de servidor) y reconciliación por estado de sincronización (`SINCRONIZADO`, `PENDENTE`, `ERRO`).
+- **Borrado lógico** de clientes y pedidos para conservar la consistencia frente a borrados/cancelaciones en Odoo.
+- Pantalla **"Acerca de"** con borrado total de datos locales (vuelve la app al estado de recién instalada).
+- **Gestión de usuarios** (solo administrador, vía API): alta, edición, cambio de contraseña, baja con control de dependencias.
+- **Health check** público en `/actuator/health` (incluye estado de MySQL).
+- **API documentada** en Swagger UI (`/swagger-ui.html`) con soporte de autenticación Bearer.
 
 ---
 
-## 📂 Estructura del backend (`api/`)
+## Estructura del repositorio
+
+### Backend (`api/`)
 
 ```
 api/src/main/java/com/guzmanges/api/
-├── config/        →  Configuración (Spring Security, datos iniciales)
+├── config/        →  Spring Security, OpenAPI, datos iniciales
 ├── controller/    →  Endpoints REST
-├── dto/           →  Objetos de transferencia de datos
-├── entity/        →  Entidades JPA (modelo de dominio)
-├── exception/     →  Manejo centralizado de errores
+├── dto/           →  Objetos de transferencia
+├── entity/        →  Entidades JPA
+├── exception/     →  Manejo global de errores
 ├── mapper/        →  Conversión entidad ↔ DTO
-├── odoo/          →  Integración con Odoo (cliente XML-RPC, mappers y sincronización)
-├── repository/    →  Acceso a datos (Spring Data JPA)
-├── security/      →  Filtros y proveedores JWT
+├── odoo/          →  Cliente XML-RPC, mappers y servicios de sincronización
+├── repository/    →  Spring Data JPA
+├── security/      →  Filtros y proveedor JWT
 ├── service/       →  Lógica de negocio
 └── util/          →  Utilidades comunes
 ```
 
+### App (`app/`)
+
+```
+app/lib/
+├── config/        →  Configuración global
+├── core/          →  Red (Dio), BD (sqflite + DAOs + migraciones), almacenamiento, validación
+├── dto/           →  DTOs de envío a la API
+├── models/        →  Modelos de dominio (Cliente, Producto, Pedido, LineaPedido, …)
+├── providers/     →  Estado (Auth, AppConfig, Clientes, Productos, Pedidos, Sync, Catálogos)
+├── routes/        →  Rutas nominadas
+├── screens/       →  Pantallas (clientes, productos, pedidos, sync, login, acerca_de, …)
+├── services/      →  Capa de API + servicios de sincronización
+├── theme/         →  Tema Material 3
+├── utils/         →  Utilidades de UI/formateo
+└── widgets/       →  Componentes reutilizables
+```
+
+### Documentación (`doc/`)
+
+- `MEMORIA_PROYECTO.pdf` — memoria completa del proyecto.
+- `manual_instalacion.md` — guía de despliegue (en gallego).
+- `manual_usuario.md` — manual del preventa (en gallego).
+- Diagramas PNG: Casos de Uso, Clases, EER (Chen y Crow's Foot), Despliegue, Gantt.
+
 ---
 
-## 🔌 API REST
+## API REST
 
-Todos los endpoints requieren token JWT (cabecera `Authorization: Bearer <token>`) salvo el login. Los de `/sync` requieren además rol **ADMIN**.
+Todos los endpoints requieren JWT (`Authorization: Bearer <token>`) salvo `/auth/login`, `/actuator/health` y la documentación OpenAPI. Los de `/sync/**` y `/usuarios/**` requieren rol **ADMIN**.
 
-| Método | Ruta | Descripción |
+| Método | Ruta | Descripción | Rol |
+|---|---|---|---|
+| `POST` | `/auth/login` | Autenticación; devuelve el JWT | *(público)* |
+| `GET`  | `/actuator/health` | Estado de la API y MySQL | *(público)* |
+| `GET`  | `/swagger-ui.html` · `/v3/api-docs` | Documentación interactiva | *(público)* |
+| `GET`  | `/clientes` | Lista de clientes activos (filtro `?modificadoDesde=…`) | autenticado |
+| `GET`  | `/clientes/{id}` | Detalle de cliente | autenticado |
+| `POST` | `/clientes` | Alta de cliente (`?forzarAlta=true` omite control de CIF duplicado) | autenticado |
+| `GET`  | `/productos` | Catálogo de productos (filtro `?modificadoDesde=…`) | autenticado |
+| `GET`  | `/productos/{id}` | Detalle de producto | autenticado |
+| `GET`  | `/pedidos` | Pedidos del usuario (todos si es ADMIN) | autenticado |
+| `GET`  | `/pedidos/{id}` | Detalle de pedido | autenticado |
+| `POST` | `/pedidos` | Alta de pedido | autenticado |
+| `GET`  | `/modos-pago` · `/modos-pago/{id}` | Catálogo de modos de pago | autenticado |
+| `GET`  | `/condiciones-pago` · `/condiciones-pago/{id}` | Catálogo de condiciones de pago | autenticado |
+| `GET`/`POST`/`PUT`/`PATCH`/`DELETE` | `/usuarios/**` | Gestión de usuarios | **ADMIN** |
+| `POST` | `/sync/maestros` | Sincroniza modos y condiciones de pago desde Odoo | **ADMIN** |
+| `POST` | `/sync/productos` | Sincroniza productos desde Odoo | **ADMIN** |
+| `POST` | `/sync/clientes` | Sincroniza clientes (bidireccional) | **ADMIN** |
+| `POST` | `/sync/pedidos` | Sincroniza pedidos (bidireccional) | **ADMIN** |
+| `POST` | `/sync/completa` | Ejecuta toda la sincronización en el orden correcto | **ADMIN** |
+
+La especificación completa, con esquemas de DTOs y ejemplos, está disponible en **`/swagger-ui.html`** al arrancar la API.
+
+---
+
+## Puesta en marcha
+
+Hay **tres rutas** para desplegar el sistema:
+
+1. **Desde los artefactos publicados** (releases de GitHub) — la más rápida, no requiere compilar.
+2. **Con Docker Compose** — recomendada para servidores; compila la imagen desde código.
+3. **Desde código fuente nativo** — para desarrollo.
+
+### Requisitos previos comunes
+
+- Una instancia accesible de **Odoo 18 Community** con los módulos *Ventas*, *Facturación* e *Inventario* activos, y los addons de OCA: `account_payment_mode`, `account_payment_partner`, `base_bank_from_iban`, `l10n_es_partner`.
+- Un usuario en Odoo con permisos sobre `res.partner`, `product.product`, `sale.order` y los catálogos de pago. **API key generada** para ese usuario.
+
+### Opción 1 — Desde los artefactos publicados
+
+Cada release del repositorio publica:
+
+- `guzmanges-api-vX.Y.Z.tar.gz` — imagen Docker de la API.
+- `guzmanges-app-vX.Y.Z.apk` — app Android (firmada con clave de debug).
+- `guzmanges-app-vX.Y.Z.ipa` — app iOS sin firmar (instalable vía Sideloadly, AltStore o Xcode con un Apple ID gratuito).
+
+Importar la imagen y arrancarla:
+
+```bash
+docker load < guzmanges-api-vX.Y.Z.tar.gz
+docker run -p 8080:8080 --env-file .env guzmanges-api:vX.Y.Z
+```
+
+Instalar la app Android con `adb install guzmanges-app-vX.Y.Z.apk` (o transferir el APK al dispositivo y autorizar "orígenes desconocidos"). Para iOS, abrir el `.ipa` en [Sideloadly](https://sideloadly.io/) con un Apple ID; la firma gratuita caduca cada 7 días.
+
+### Opción 2 — Con Docker Compose (recomendada)
+
+Levanta API + MySQL con un solo comando. Pensado para servidores (Portainer, una VPS, etc.).
+
+```bash
+git clone https://github.com/Iago-3004/guzmanges-proyecto.git
+cd guzmanges-proyecto
+cp .env.example .env
+# Editar .env con tus credenciales (MySQL, JWT, Odoo)
+docker compose up -d --build
+```
+
+La API queda en `http://localhost:8080`, MySQL en la red interna de Compose (no expuesta al host). Para exponer MySQL temporalmente, copiar `docker-compose.override.example.yml` a `docker-compose.override.yml` (Compose lo carga automáticamente).
+
+El `healthcheck` del contenedor de la API consulta `/actuator/health` y reinicia el contenedor si MySQL cae.
+
+### Opción 3 — Desde código fuente
+
+```bash
+# Backend
+cd api
+./mvnw spring-boot:run
+
+# App
+cd ../app
+flutter pub get
+flutter run
+```
+
+Con MySQL en `localhost:3306` y las variables de entorno descritas más abajo.
+
+---
+
+## Variables de entorno
+
+La API las lee al arrancar (sea contenedor o nativo). MySQL, JWT y CORS tienen valores por defecto válidos para desarrollo; las de Odoo son obligatorias.
+
+### MySQL
+
+| Variable | Descripción | Por defecto |
 |---|---|---|
-| `POST` | `/auth/login` | Autenticación; devuelve el token JWT *(público)* |
-| `GET` | `/clientes` | Lista los clientes activos |
-| `GET` | `/clientes/{id}` | Detalle de un cliente |
-| `POST` | `/clientes` | Alta de cliente (`?forzarAlta=true` omite el control de CIF duplicado) |
-| `GET` | `/modos-pago` · `/modos-pago/{id}` | Catálogo de modos de pago |
-| `GET` | `/condiciones-pago` · `/condiciones-pago/{id}` | Catálogo de condiciones de pago |
-| `POST` | `/sync/clientes` | Sincroniza clientes con Odoo: importa y envía las altas pendientes *(ADMIN)* |
-| `POST` | `/sync/maestros` | Sincroniza los catálogos (modos y condiciones de pago) desde Odoo *(ADMIN)* |
+| `MYSQL_HOST` | Host de MySQL | `localhost` |
+| `MYSQL_PORT` | Puerto | `3306` |
+| `MYSQL_DB` / `MYSQL_DATABASE` | Nombre de la BD | `guzmanges` |
+| `MYSQL_USER` | Usuario | `root` |
+| `MYSQL_PASSWORD` | Contraseña | `root` |
+| `MYSQL_ROOT_PASSWORD` | Solo para Compose | *(obligatoria)* |
+
+### JWT
+
+| Variable | Descripción | Por defecto |
+|---|---|---|
+| `JWT_SECRET` | Secreto de firma (≥64 caracteres aleatorios) | *(placeholder no apto para producción)* |
+
+Generar uno seguro:
+
+```bash
+# Linux/macOS
+openssl rand -base64 64
+# PowerShell
+[Convert]::ToBase64String((1..64 | %{Get-Random -Max 256}))
+```
+
+### Odoo (obligatorias)
+
+| Variable | Descripción | Por defecto |
+|---|---|---|
+| `ODOO_URL` | URL de la instancia | *(obligatoria)* |
+| `ODOO_DB` | Nombre de la BD de Odoo | *(obligatoria)* |
+| `ODOO_USER` | Usuario/login | *(obligatoria)* |
+| `ODOO_APIKEY` | API key (o contraseña) | *(obligatoria)* |
+| `ODOO_LANG` | Idioma de campos traducibles | `es_ES` |
+| `ODOO_SYNC_ENABLED` | Activa la sincronización periódica | `true` |
+
+### Otros
+
+| Variable | Descripción | Por defecto |
+|---|---|---|
+| `CORS_ALLOWED_ORIGINS` | Orígenes permitidos (separados por comas, admite comodines) | `http://localhost:*` |
+| `POSICION_FISCAL_RECARGO_KEYWORD` | Palabra clave para detectar régimen de recargo de equivalencia | `recargo` |
+| `JPA_SHOW_SQL` | Mostrar SQL en logs | `false` |
+| `API_HOST_PORT` | Puerto del host (solo Compose) | `8080` |
+| `JAVA_OPTS` | Opciones JVM extra | *(vacío)* |
 
 ---
 
-## 🚀 Puesta en marcha
+## Usuarios por defecto
 
-### Requisitos
-
-- Java 21
-- MySQL en ejecución (recomendado vía Docker)
-- Flutter SDK (para el frontend)
-
-1. Crear la base de datos:
-   ```sql
-   CREATE DATABASE guzmanges CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-   ```
-
-2. Configurar las variables de entorno. La API las lee al arrancar. Las de MySQL,
-   JWT y CORS tienen un valor por defecto válido para desarrollo local; las de Odoo
-   (ver más abajo) son obligatorias.
-
-   | Variable | Descripción | Valor por defecto |
-   |---|---|---|
-   | `MYSQL_HOST` | Host del servidor MySQL | `localhost` |
-   | `MYSQL_PORT` | Puerto de MySQL | `3306` |
-   | `MYSQL_DB` | Nombre de la base de datos | `guzmanges` |
-   | `MYSQL_USER` | Usuario de MySQL | `root` |
-   | `MYSQL_PASSWORD` | Contraseña de MySQL | `root` |
-   | `JWT_SECRET` | Clave secreta para firmar los tokens JWT (mínimo 64 caracteres) | *(placeholder de desarrollo)* |
-   | `CORS_ALLOWED_ORIGINS` | Orígenes permitidos para CORS, separados por comas | `http://localhost:*` |
-
-   > ⚠️ En producción es **obligatorio** definir un `JWT_SECRET` propio (cadena
-   > larga y aleatoria) y ajustar las credenciales de MySQL y los orígenes CORS.
-   > El valor por defecto del secreto **no es seguro** para un entorno real.
-
-   Para generar un secreto seguro:
-   ```bash
-   openssl rand -base64 64
-   ```
-
-   **Variables de Odoo** (sincronización vía XML-RPC). Las cuatro de conexión **no
-   tienen valor por defecto** y son **obligatorias**: sin ellas la API no arranca.
-
-   | Variable | Descripción | Valor por defecto |
-   |---|---|---|
-   | `ODOO_URL` | URL de la instancia de Odoo | *(obligatoria)* |
-   | `ODOO_DB` | Nombre de la base de datos de Odoo | *(obligatoria)* |
-   | `ODOO_USER` | Usuario/login de la API en Odoo | *(obligatoria)* |
-   | `ODOO_APIKEY` | API key (o contraseña) de ese usuario | *(obligatoria)* |
-   | `ODOO_LANG` | Idioma de los campos traducibles de Odoo | `es_ES` |
-   | `ODOO_SYNC_ENABLED` | Activa la sincronización automática | `true` |
-
-   > La sincronización se ejecuta al arrancar y luego de forma periódica; si Odoo no
-   > responde, los errores se registran y la API sigue en marcha. Con
-   > `ODOO_SYNC_ENABLED=false` se desactivan esas sincronizaciones automáticas (las
-   > variables de conexión siguen siendo necesarias para arrancar).
-
-3. Arrancar la API:
-   ```bash
-   cd api
-   ./mvnw spring-boot:run
-   ```
-   La API queda disponible en `http://localhost:8080`.
-
-Al arrancar por primera vez se crean dos usuarios de prueba:
+Al arrancar la API por primera vez se crean dos usuarios de prueba. **Cambiar las contraseñas en cualquier despliegue real**.
 
 | Usuario | Contraseña | Rol |
 |---|---|---|
 | `admin` | `admin` | ADMIN |
 | `preventa` | `preventa` | PREVENTA |
 
-Ejemplo de login:
+Login de ejemplo:
+
 ```bash
 curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
   -d '{"nombreUsuario":"admin","contrasena":"admin"}'
 ```
 
-### Frontend
+---
+
+## Sincronización con Odoo
+
+La API sincroniza con Odoo en tres situaciones:
+
+1. **Al arrancar** (`ApplicationReadyEvent`): se ejecuta una sincronización inicial completa.
+2. **Periódicamente** (`@Scheduled`): cada bloque tiene su propio intervalo configurable (`odoo.sync.<bloque>.interval`).
+3. **A demanda** vía `/sync/**` (solo ADMIN), normalmente desde Swagger UI o un script.
+
+El **orden** es importante porque hay dependencias: maestros → productos → clientes → pedidos. Las altas locales (clientes y pedidos) suben **después** de la importación, y los pedidos esperan a que su cliente tenga ya `idOdoo`.
+
+Si Odoo no responde, los errores se registran y la API sigue en marcha. La app móvil refleja el estado de cada registro con chips `SINCRONIZADO` / `PENDENTE` / `ERRO`, y desde la pantalla "Estado de sincronización" se pueden reintentar o eliminar los pendientes.
+
+---
+
+## App móvil
+
+### Compilación
 
 ```bash
 cd app
 flutter pub get
-flutter run
+
+# Android
+flutter build apk --release
+# → build/app/outputs/flutter-apk/app-release.apk
+
+# iOS (sin firma, para sideloading)
+flutter build ios --release --no-codesign
 ```
 
+Bundle ID: `com.guzmanges.app`. Iconos generados con `flutter_launcher_icons` a partir de `assets/logo_guzmanges.png`.
+
+### Primer arranque
+
+En la primera ejecución la app pide la URL del servidor; valida que responda a `/actuator/health` antes de guardarla. Después se pasa al login.
+
+Para resetear la app (cambio de servidor, dispositivo compartido, etc.): **Acerca de → Borrar todos los datos**.
+
 ---
 
-## 📖 Documentación
+## CI/CD — GitHub Actions
 
-La documentación completa del proyecto (memoria, diagramas de casos de uso, modelo entidad-relación, modelo relacional, diagrama de clases y planificación) se encuentra en la carpeta [`doc/`](doc/).
+El workflow `.github/workflows/release.yml` genera los tres artefactos de instalación en cada publicación de release.
+
+**Disparadores**:
+- Push de un tag `v*.*.*` → la versión se toma del tag.
+- `workflow_dispatch` desde la UI de Actions → la versión se introduce manualmente.
+
+**Jobs paralelos**:
+1. `docker` — construye y exporta la imagen como `.tar.gz`.
+2. `apk` — `flutter build apk --release`.
+3. `ipa` — `flutter build ios --no-codesign` y empaqueta como `.ipa` para sideloading.
+
+**Release**: se crea en **borrador** con los tres artefactos adjuntos y las notas de versión auto-generadas. Hay que publicarla manualmente desde la UI de GitHub tras verificar los binarios.
 
 ---
 
-## 👤 Autor
+## Documentación
 
-**Iago Malvido Guzmán** — 2º DAM
+- **Memoria del proyecto**: [`doc/MEMORIA_PROYECTO.pdf`](doc/MEMORIA_PROYECTO.pdf).
+- **Manual de instalación** (gallego): [`doc/manual_instalacion.md`](doc/manual_instalacion.md).
+- **Manual de usuario** (gallego): [`doc/manual_usuario.md`](doc/manual_usuario.md).
+- **API**: Swagger UI en `/swagger-ui.html` con la API en marcha.
+- **Diagramas**: `doc/Diagrama *.png` (Casos de Uso, Clases, EER, Despliegue, Gantt).
+
+---
+
+## Autor
+
+**Iago Malvido Guzmán** — 2º DAM.
 🔗 [github.com/Iago-3004](https://github.com/Iago-3004)
 
-Proyecto desarrollado como Proyecto Final de Ciclo del título de Desarrollo de Aplicaciones Multiplataforma (DAM).
+Proyecto desarrollado como Proyecto Final de Ciclo del título de Desarrollo de Aplicaciones Multiplataforma. Defensa: junio 2026.
