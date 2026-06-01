@@ -50,6 +50,17 @@ services:
         condition: service_healthy
     ports:
       - "${API_HOST_PORT:-8080}:8080"
+    healthcheck:
+      # /actuator/health devuelve 200 + {"status":"UP"} cuando la API está
+      # lista y MySQL responde; 503 + {"status":"DOWN"} si MySQL cae. wget
+      # viene de serie en la imagen alpine via busybox. start_period da
+      # margen suficiente al arranque de Spring Boot antes de marcar el
+      # contenedor como unhealthy.
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     environment:
       # --- MySQL ---
       MYSQL_HOST: mysql

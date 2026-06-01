@@ -99,6 +99,11 @@ public class SecurityConfig {
                                 "/v3/api-docs.yaml",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**").permitAll()
+                        // /actuator/health debe ser público para que Docker
+                        // pueda chamalo no healthcheck do contedor sen JWT.
+                        // O resto de endpoints de actuator non se expoñen
+                        // (ver application.properties).
+                        .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/sync/**").hasRole("ADMIN")
                         .requestMatchers("/usuarios/**").hasRole("ADMIN")
                         .anyRequest().authenticated())

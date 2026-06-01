@@ -1,6 +1,9 @@
 package com.guzmanges.api.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final UsuarioRepository usuarioRepository;
@@ -39,14 +44,26 @@ public class AuthService {
      *         si las credenciales no son válidas
      */
     public JwtResponse login(LoginRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.nombreUsuario(), request.contrasena()));
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.nombreUsuario(), request.contrasena()));
+        } catch (BadCredentialsException e) {
+            // El username se loguea para poder detectar intentos de
+            // brute-force. La contraseña NUNCA se loguea.
+            log.warn("[AUTH] Intento fallido para usuario '{}': credenciales incorrectas",
+                    request.nombreUsuario());
+            throw e;
+        }
 
         String token = jwtTokenProvider.generateToken(authentication);
 
         Usuario usuario = usuarioRepository.findByNombreUsuario(request.nombreUsuario())
                 .orElseThrow();
+
+        log.info("[AUTH] Usuario '{}' inició sesión correctamente (rol: {})",
+                usuario.getNombreUsuario(), usuario.getTipoUsuario());
 
         return new JwtResponse(
                 token,

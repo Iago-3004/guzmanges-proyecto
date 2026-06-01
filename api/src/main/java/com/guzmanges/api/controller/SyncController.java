@@ -2,6 +2,7 @@ package com.guzmanges.api.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -52,7 +53,9 @@ public class SyncController {
     @Operation(summary = "Sincronizar maestros",
             description = "Importa modos y condiciones de pago desde Odoo (read-only).")
     @PostMapping("/maestros")
-    public SyncMaestrosResponse sincronizarMaestros() {
+    public SyncMaestrosResponse sincronizarMaestros(Authentication authentication) {
+        log.info("[SYNC MANUAL] '{}' inició sincronización de maestros",
+                authentication.getName());
         odooMaestrosSyncService.syncCondicionesPago();
         odooMaestrosSyncService.syncModosPago();
         return new SyncMaestrosResponse("Maestros sincronizados");
@@ -67,7 +70,9 @@ public class SyncController {
     @Operation(summary = "Sincronizar productos",
             description = "Importa el catálogo de productos desde Odoo (read-only).")
     @PostMapping("/productos")
-    public SyncProductosResponse sincronizarProductos() {
+    public SyncProductosResponse sincronizarProductos(Authentication authentication) {
+        log.info("[SYNC MANUAL] '{}' inició sincronización de productos",
+                authentication.getName());
         int importados = odooProductosSyncService.importarProductosDesdeOdoo();
         return new SyncProductosResponse(importados);
     }
@@ -80,7 +85,9 @@ public class SyncController {
     @Operation(summary = "Sincronizar clientes",
             description = "Bidireccional: importa de Odoo y envía las altas locales pendientes.")
     @PostMapping("/clientes")
-    public SyncBidireccionalResponse sincronizarClientes() {
+    public SyncBidireccionalResponse sincronizarClientes(Authentication authentication) {
+        log.info("[SYNC MANUAL] '{}' inició sincronización de clientes",
+                authentication.getName());
         int importados = odooSyncService.importarClientesDesdeOdoo();
         SyncResult enviados = odooSyncService.enviarClientesPendientes();
         return new SyncBidireccionalResponse(importados, enviados);
@@ -96,7 +103,9 @@ public class SyncController {
     @Operation(summary = "Sincronizar pedidos",
             description = "Bidireccional: importa de Odoo y envía los pedidos locales pendientes.")
     @PostMapping("/pedidos")
-    public SyncBidireccionalResponse sincronizarPedidos() {
+    public SyncBidireccionalResponse sincronizarPedidos(Authentication authentication) {
+        log.info("[SYNC MANUAL] '{}' inició sincronización de pedidos",
+                authentication.getName());
         int importados = odooPedidosSyncService.importarPedidosDesdeOdoo();
         SyncResult enviados = odooPedidosSyncService.enviarPedidosPendientes();
         return new SyncBidireccionalResponse(importados, enviados);
@@ -125,7 +134,9 @@ public class SyncController {
             description = "Ejecuta maestros, productos, clientes y pedidos en el orden correcto. "
                     + "Captura errores por bloque para que un fallo no aborte el resto.")
     @PostMapping("/completa")
-    public SyncCompletaResponse sincronizacionCompleta() {
+    public SyncCompletaResponse sincronizacionCompleta(Authentication authentication) {
+        log.info("[SYNC MANUAL] '{}' inició sincronización completa",
+                authentication.getName());
         BloqueResultadoSync maestros = ejecutarMaestros();
         BloqueResultadoSync productos = ejecutarProductos();
         BloqueResultadoSync clientes = ejecutarClientes();
