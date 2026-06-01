@@ -227,10 +227,25 @@ public class OdooPedidosSyncService {
     }
 
     /**
-     * Detecta los pedidos borrados en Odoo (idOdoo local que no aparece entre
-     * los importados, y que tampoco se devuelve al re-consultar Odoo) y los
-     * elimina de MySQL para mantener el histórico consistente. Mismo patrón
-     * que la reconciliación de clientes.
+     * Detecta los pedidos que han dejado de estar "vivos" en Odoo y los marca
+     * como {@code ANULADO} en MySQL bumpando {@code fechaModificacion}. Mismo
+     * patrón que la reconciliación de clientes: no hacemos borrado físico
+     * para que la sincronización incremental de la app pueda devolver la fila
+     * con el nuevo estado; si la elimináramos, la app no se enteraría y el
+     * pedido quedaría visible en el móvil indefinidamente. La app, al recibir
+     * un pedido en estado {@code ANULADO}, lo elimina de su BD local.
+     *
+     * Dos casos disparan la anulación:
+     * <ul>
+     *   <li>El pedido ya no existe en Odoo (eliminado físicamente).</li>
+     *   <li>Existe pero con {@code state='cancel'} (cancelado en Odoo).</li>
+     * </ul>
+     * En ambos casos el comercial ya no debe verlo en la app.
+     *
+     * Los pedidos que siguen existiendo con otro estado distinto al confirmado
+     * (p. ej. {@code draft}) se dejan intactos: es un caso raro (un pedido
+     * confirmado vuelto a borrador) y la decisión correcta no es obvia, así
+     * que de momento no se toca.
      */
     private void reconciliarPedidosBorrados(Set<String> idsVistos) {
         List<Pedido> candidatos = pedidoRepository.findByIdOdooIsNotNull().stream()
@@ -242,22 +257,32 @@ public class OdooPedidosSyncService {
         List<Integer> idsCandidatos = candidatos.stream()
                 .map(p -> Integer.parseInt(p.getIdOdoo()))
                 .toList();
-        Set<Integer> existentes = odooPedidoRepository.findExistingIds(idsCandidatos);
+        Map<Integer, String> estadosEnOdoo = odooPedidoRepository.findExistingStates(idsCandidatos);
 
-        int borrados = 0;
-        for (Pedido pedido : candidatos) {
-            if (existentes.contains(Integer.parseInt(pedido.getIdOdoo()))) {
-                // Sigue existiendo en Odoo: probablemente lo filtramos por
-                // estado (draft/cancel). No es un borrado real.
-                continue;
-            }
-            pedidoRepository.delete(pedido);
-            borrados++;
-            log.info("[ODOO -> DB] Pedido {} (idOdoo {}) borrado en Odoo: eliminado de MySQL",
-                    pedido.getNumero(), pedido.getIdOdoo());
+        // Anulamos los que ya no existen en Odoo o existen con state='cancel'.
+        // Filtramos también los que ya estaban ANULADO en MySQL: rebumpar la
+        // fecha solo añade ruido a la siguiente sincronización incremental.
+        List<Pedido> aAnular = candidatos.stream()
+                .filter(p -> {
+                    String estadoOdoo = estadosEnOdoo.get(Integer.parseInt(p.getIdOdoo()));
+                    return estadoOdoo == null || "cancel".equals(estadoOdoo);
+                })
+                .filter(p -> p.getEstadoPedido() != EstadoPedido.ANULADO)
+                .toList();
+
+        LocalDateTime ahora = LocalDateTime.now();
+        for (Pedido pedido : aAnular) {
+            pedido.setEstadoPedido(EstadoPedido.ANULADO);
+            pedido.setFechaModificacion(ahora);
+            pedidoRepository.save(pedido);
+            String motivo = estadosEnOdoo.containsKey(Integer.parseInt(pedido.getIdOdoo()))
+                    ? "cancelado en Odoo"
+                    : "borrado en Odoo";
+            log.info("[ODOO -> DB] Pedido {} (idOdoo {}) {}: anulado en MySQL",
+                    pedido.getNumero(), pedido.getIdOdoo(), motivo);
         }
-        if (borrados > 0) {
-            log.info("=== RECONCILIACIÓN DE PEDIDOS BORRADOS: {} eliminados ===", borrados);
+        if (!aAnular.isEmpty()) {
+            log.info("=== RECONCILIACIÓN DE PEDIDOS: {} anulados ===", aAnular.size());
         }
     }
 

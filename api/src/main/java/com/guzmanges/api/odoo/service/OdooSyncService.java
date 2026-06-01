@@ -1,10 +1,12 @@
 package com.guzmanges.api.odoo.service;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -23,7 +25,6 @@ import com.guzmanges.api.odoo.repository.OdooClienteRepository;
 import com.guzmanges.api.repository.ClienteRepository;
 import com.guzmanges.api.repository.CondicionPagoRepository;
 import com.guzmanges.api.repository.ModoPagoRepository;
-import com.guzmanges.api.repository.PedidoRepository;
 import com.guzmanges.api.repository.UsuarioRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -44,7 +45,6 @@ public class OdooSyncService {
     private final CondicionPagoRepository condicionPagoRepository;
     private final ModoPagoRepository modoPagoRepository;
     private final UsuarioRepository usuarioRepository;
-    private final PedidoRepository pedidoRepository;
     private final OdooClienteRepository odooClienteRepository;
     private final OdooClienteMapper odooClienteMapper;
 
@@ -108,12 +108,17 @@ public class OdooSyncService {
     }
 
     /**
-     * Detecta y procesa los clientes borrados por completo en Odoo. Un cliente local con idOdoo
-     * cuyo id no figura entre los vistos en la importación es un candidato; se confirma consultando
-     * a Odoo si ese id todavía existe (activo o archivado), para no confundir un borrado real con un
-     * cliente filtrado por empresa o que dejó de ser cliente. Los confirmados como borrados se
-     * eliminan de MySQL, salvo que tengan pedidos asociados: en ese caso se desactivan (activo=false)
-     * para no perder el historial ni romper la integridad referencial.
+     * Detecta y procesa los clientes borrados en Odoo. Un cliente local con idOdoo cuyo id no
+     * figura entre los vistos en la importación es un candidato; se confirma consultando a Odoo si
+     * ese id todavía existe (activo o archivado), para no confundir un borrado real con un cliente
+     * filtrado por empresa o que dejó de ser cliente.
+     *
+     * Los confirmados como borrados se desactivan en MySQL ({@code activo=false}) y se les bumpa
+     * {@code fechaModificacion} para que la app los detecte en la siguiente sincronización
+     * incremental y los oculte (el DAO local filtra por {@code activo=1}). No se hace borrado
+     * físico aunque el cliente no tenga pedidos: si lo hiciéramos, la sincronización incremental
+     * de la app (que pide solo lo modificado desde la última vez) no podría devolver una fila que
+     * ya no existe, y el cliente quedaría visible en el móvil indefinidamente.
      *
      * @param idsVistos ids de Odoo (como String) de los clientes que sí existen en Odoo
      */
@@ -131,29 +136,24 @@ public class OdooSyncService {
                 .toList();
         Set<Integer> existentes = odooClienteRepository.findExistingIds(idsCandidatos);
 
-        int borrados = 0;
-        int desactivados = 0;
-        for (Cliente cliente : candidatos) {
-            if (existentes.contains(Integer.parseInt(cliente.getIdOdoo()))) {
-                continue; // Sigue existiendo en Odoo (filtrado por empresa/customer_rank): no se toca
-            }
-            if (pedidoRepository.existsByClienteId(cliente.getId())) {
-                cliente.setActivo(false);
-                clienteRepository.save(cliente);
-                desactivados++;
-                log.warn("[ODOO -> DB] Cliente '{}' (idOdoo {}) borrado en Odoo pero tiene pedidos: "
-                        + "se desactiva en vez de borrarse", cliente.getRazonSocial(), cliente.getIdOdoo());
-            } else {
-                clienteRepository.delete(cliente);
-                borrados++;
-                log.info("[ODOO -> DB] Cliente '{}' (idOdoo {}) borrado en Odoo: eliminado de MySQL",
-                        cliente.getRazonSocial(), cliente.getIdOdoo());
-            }
+        // Filtramos antes de tocar nada: nos quedamos solo con los que ya no están en Odoo y que
+        // siguen activos en MySQL (los que ya estaban desactivados no aportan nada).
+        List<Cliente> aDesactivar = candidatos.stream()
+                .filter(cliente -> !existentes.contains(Integer.parseInt(cliente.getIdOdoo())))
+                .filter(cliente -> Boolean.TRUE.equals(cliente.getActivo()))
+                .toList();
+
+        LocalDateTime ahora = LocalDateTime.now();
+        for (Cliente cliente : aDesactivar) {
+            cliente.setActivo(false);
+            cliente.setFechaModificacion(ahora);
+            clienteRepository.save(cliente);
+            log.info("[ODOO -> DB] Cliente '{}' (idOdoo {}) borrado en Odoo: desactivado en MySQL",
+                    cliente.getRazonSocial(), cliente.getIdOdoo());
         }
 
-        if (borrados > 0 || desactivados > 0) {
-            log.info("=== RECONCILIACIÓN DE BORRADOS: {} eliminados, {} desactivados (con pedidos) ===",
-                    borrados, desactivados);
+        if (!aDesactivar.isEmpty()) {
+            log.info("=== RECONCILIACIÓN DE BORRADOS: {} clientes desactivados ===", aDesactivar.size());
         }
     }
 
@@ -203,18 +203,15 @@ public class OdooSyncService {
         if (cache.containsKey(odooUserId)) {
             return cache.get(odooUserId);
         }
-        Usuario usuario = null;
         String[] identidades = odooClienteRepository.findUserLoginAndEmail(odooUserId);
-        if (identidades != null) {
-            for (String identidad : identidades) {
-                if (identidad != null) {
-                    usuario = usuarioRepository.findByEmailIgnoreCase(identidad).orElse(null);
-                    if (usuario != null) {
-                        break;
-                    }
-                }
-            }
-        }
+        Usuario usuario = identidades == null
+                ? null
+                : Arrays.stream(identidades)
+                        .filter(Objects::nonNull)
+                        .map(identidad -> usuarioRepository.findByEmailIgnoreCase(identidad).orElse(null))
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .orElse(null);
         cache.put(odooUserId, usuario);
         return usuario;
     }

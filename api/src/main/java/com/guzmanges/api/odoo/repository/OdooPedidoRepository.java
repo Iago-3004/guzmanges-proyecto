@@ -4,10 +4,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.springframework.stereotype.Repository;
 
@@ -175,18 +173,31 @@ public class OdooPedidoRepository {
 
     /**
      * De una lista de ids, devuelve los que todavía existen como
-     * {@code sale.order} en Odoo (en cualquier estado). Se usa para confirmar
-     * borrados: un id que no vuelve ha sido eliminado por completo en Odoo.
+     * {@code sale.order} en Odoo (en cualquier estado), junto con su
+     * {@code state} actual. Se usa en la reconciliación para distinguir tres
+     * casos:
+     * <ul>
+     *   <li>id ausente del mapa → eliminado por completo en Odoo.</li>
+     *   <li>id presente con {@code state='cancel'} → cancelado en Odoo, debe
+     *       reflejarse como ANULADO en MySQL.</li>
+     *   <li>id presente con cualquier otro estado (p. ej. {@code draft}) →
+     *       no se considera borrado ni cancelado, se deja como esté.</li>
+     * </ul>
      *
      * @param ids ids a comprobar
-     * @return conjunto de ids que siguen existiendo
+     * @return mapa id → state de los pedidos que siguen existiendo
      */
-    public Set<Integer> findExistingIds(List<Integer> ids) {
+    public Map<Integer, String> findExistingStates(List<Integer> ids) {
         if (ids == null || ids.isEmpty()) {
-            return Set.of();
+            return Map.of();
         }
         List<Object> domain = List.of(Arrays.asList("id", "in", ids));
-        return new HashSet<>(client.search(MODEL, domain));
+        List<Map<String, Object>> rows = client.searchRead(MODEL, domain, List.of("id", "state"));
+        Map<Integer, String> resultado = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            resultado.put(((Number) row.get("id")).intValue(), (String) row.get("state"));
+        }
+        return resultado;
     }
 
     /**

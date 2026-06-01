@@ -89,7 +89,38 @@ class PedidosDao {
   /// En ambos casos se reescriben las líneas completas: el backend es la
   /// fuente de verdad tras la confirmación. Los pedidos locales sin
   /// `id_servidor` nunca se ven afectados.
+  ///
+  /// Caso especial: si el pedido llega con [EstadoPedido.anulado], se
+  /// interpreta como "borrado en el servidor" (el backend lo marca así
+  /// cuando desaparece de Odoo) y se elimina la fila local en lugar de
+  /// upsertar. Así el pedido desaparece de la app sin que el usuario tenga
+  /// que hacer nada.
   Future<void> upsertDesdeServidor(Pedido pedido) async {
+    if (pedido.estadoPedido == EstadoPedido.anulado) {
+      await _db.transaction((txn) async {
+        final existente = await txn.query(
+          _tablaPedidos,
+          columns: ['id_local'],
+          where: 'id_servidor = ?',
+          whereArgs: [pedido.idServidor],
+          limit: 1,
+        );
+        if (existente.isEmpty) return;
+        final idLocalLocal = existente.first['id_local'] as String;
+        await txn.delete(
+          _tablaLineas,
+          where: 'pedido_id_local = ?',
+          whereArgs: [idLocalLocal],
+        );
+        await txn.delete(
+          _tablaPedidos,
+          where: 'id_local = ?',
+          whereArgs: [idLocalLocal],
+        );
+      });
+      return;
+    }
+
     await _db.transaction((txn) async {
       String idLocalFinal = pedido.idLocal;
       int creadoEn = pedido.creadoEn.millisecondsSinceEpoch;
