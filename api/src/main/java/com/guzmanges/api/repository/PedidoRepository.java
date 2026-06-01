@@ -73,4 +73,14 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
      * comparando los ids vistos con los locales.
      */
     List<Pedido> findByIdOdooIsNotNull();
+
+    /**
+     * Cuenta los pedidos asignados a un usuario concreto. Lo usa la lógica
+     * de borrado de usuarios para detectar dependencias antes de permitir
+     * la eliminación.
+     *
+     * @param usuarioId identificador del usuario
+     * @return número de pedidos asignados a ese usuario
+     */
+    long countByUsuarioId(Long usuarioId);
 }

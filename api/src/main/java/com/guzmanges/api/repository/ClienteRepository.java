@@ -32,4 +32,14 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     List<Cliente> findByFechaModificacionGreaterThanEqualOrderByNombreComercialAsc(LocalDateTime fechaDesde);
 
     List<Cliente> findByCifIgnoreCase(String cif);
+
+    /**
+     * Cuenta los clientes que tienen asignado un comercial concreto. Lo usa
+     * la lógica de borrado de usuarios para detectar dependencias antes de
+     * permitir la eliminación.
+     *
+     * @param comercialId identificador del usuario comercial
+     * @return número de clientes con ese comercial asignado
+     */
+    long countByComercialId(Long comercialId);
 }
