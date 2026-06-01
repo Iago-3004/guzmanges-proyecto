@@ -15,7 +15,7 @@
 #                                 vigencia 7 días por el límite del free tier
 #                                 de Apple).
 
-name: Release artefactos
+name: Build & Release
 
 on:
   push:
