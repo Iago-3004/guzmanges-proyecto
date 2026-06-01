@@ -100,6 +100,14 @@ class Pedido {
   /// el cliente": en ese caso el mensaje lo explica al usuario.
   final String? mensajeError;
 
+  /// Login del preventa al que pertenece el pedido (campo `usuario` del
+  /// backend, equivalente a `nombreUsuario`). En alta local se rellena con
+  /// el usuario autenticado; en sincronización descendente con el que
+  /// devuelve el backend. La app filtra por este campo para que en un
+  /// dispositivo compartido cada preventa solo vea sus pedidos. Puede ser
+  /// null en pedidos antiguos (anteriores a la migración v9).
+  final String? usuarioLogin;
+
   final DateTime actualizadoEn;
   final DateTime creadoEn;
 
@@ -120,6 +128,7 @@ class Pedido {
     required this.estadoPedido,
     required this.estadoSync,
     this.mensajeError,
+    this.usuarioLogin,
     required this.actualizadoEn,
     required this.creadoEn,
   });
@@ -159,6 +168,7 @@ class Pedido {
       estadoPedido: EstadoPedido.desdeBackend(json['estadoPedido'] as String?),
       estadoSync: EstadoSync.sincronizado,
       mensajeError: null,
+      usuarioLogin: json['usuario'] as String?,
       actualizadoEn: ahora,
       creadoEn: creadoEn ?? ahora,
     );
@@ -188,6 +198,7 @@ class Pedido {
       estadoPedido: EstadoPedido.desdeBackend(map['estado_pedido'] as String?),
       estadoSync: EstadoSync.desdeBackend(map['estado_sync'] as String?),
       mensajeError: map['mensaje_error'] as String?,
+      usuarioLogin: map['usuario_login'] as String?,
       actualizadoEn:
           DateTime.fromMillisecondsSinceEpoch(map['actualizado_en'] as int),
       creadoEn: DateTime.fromMillisecondsSinceEpoch(map['creado_en'] as int),
@@ -213,6 +224,7 @@ class Pedido {
       'estado_pedido': estadoPedido.nombreBackend,
       'estado_sync': estadoSync.nombreBackend,
       'mensaje_error': mensajeError,
+      'usuario_login': usuarioLogin,
       'actualizado_en': actualizadoEn.millisecondsSinceEpoch,
       'creado_en': creadoEn.millisecondsSinceEpoch,
     };

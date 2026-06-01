@@ -82,9 +82,22 @@ Future<void> main() async {
     syncMetadataDao,
   );
 
+  // Propagamos al PedidosProvider el preventa autenticado cada vez que
+  // cambia: así la lista de pedidos en SQLite se filtra por el login del
+  // usuario actual y en un dispositivo compartido cada preventa solo ve
+  // los suyos. Cubre los tres flujos: login, logout y arranque con sesión
+  // persistida. Un ADMIN ve todos los pedidos (mismo criterio que el
+  // backend), así que en ese caso desactivamos el filtro.
+  final authProvider = AuthProvider(
+    authService,
+    tokenStorage,
+    onUsuarioActivoChanged: (login, esAdmin) =>
+        pedidosProvider.setUsuarioActivo(esAdmin ? null : login),
+  )..comprobarSesion();
+
   runApp(GuzmanGesApp(
     appConfigProvider: AppConfigProvider(configStorage, apiClient, urlGuardada),
-    authProvider: AuthProvider(authService, tokenStorage)..comprobarSesion(),
+    authProvider: authProvider,
     catalogosProvider: catalogosProvider,
     productosProvider: productosProvider,
     clientesProvider: clientesProvider,

@@ -20,8 +20,18 @@ class PedidosDao {
   /// Lista los pedidos en SQLite, descendentes por fecha. Para cada uno
   /// carga sus líneas en una segunda consulta (en lugar de hacer un join
   /// con `GROUP_CONCAT`, que se complica con tantos campos numéricos).
-  Future<List<Pedido>> listar() async {
-    final filas = await _db.query(_tablaPedidos, orderBy: 'fecha DESC');
+  ///
+  /// Si se pasa [usuarioLogin], devuelve solo los pedidos de ese preventa
+  /// (típicamente el usuario autenticado). Pensado para que en un
+  /// dispositivo compartido cada preventa solo vea los suyos. Si se omite,
+  /// devuelve todos (caso ADMIN o pruebas).
+  Future<List<Pedido>> listar({String? usuarioLogin}) async {
+    final filas = await _db.query(
+      _tablaPedidos,
+      where: usuarioLogin == null ? null : 'usuario_login = ?',
+      whereArgs: usuarioLogin == null ? null : [usuarioLogin],
+      orderBy: 'fecha DESC',
+    );
     final pedidos = <Pedido>[];
     for (final fila in filas) {
       final idLocal = fila['id_local'] as String;
@@ -49,10 +59,19 @@ class PedidosDao {
   /// determina por `id_servidor IS NULL` (no por `estado_sync`) por el
   /// mismo motivo que en clientes: el campo de estado puede sobreescribirse
   /// en una sincronización descendente y la cola debe ser robusta a eso.
-  Future<List<Pedido>> listarPendientesDeEnvio() async {
+  ///
+  /// Si se pasa [usuarioLogin], devuelve solo los pendientes de ese
+  /// preventa. Pensado para que al sincronizar no se suban a la API
+  /// pedidos creados por otro usuario que comparte el dispositivo (si lo
+  /// hiciéramos, el backend asignaría la autoría al usuario autenticado
+  /// actual, falsificando el comercial del pedido).
+  Future<List<Pedido>> listarPendientesDeEnvio({String? usuarioLogin}) async {
     final filas = await _db.query(
       _tablaPedidos,
-      where: 'id_servidor IS NULL',
+      where: usuarioLogin == null
+          ? 'id_servidor IS NULL'
+          : 'id_servidor IS NULL AND usuario_login = ?',
+      whereArgs: usuarioLogin == null ? null : [usuarioLogin],
       orderBy: 'creado_en ASC',
     );
     final pedidos = <Pedido>[];

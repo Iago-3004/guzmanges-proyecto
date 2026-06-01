@@ -68,9 +68,26 @@ class PedidosProvider extends ChangeNotifier {
   bool _soloPendientes = false;
   bool _cargando = false;
 
+  /// Login del preventa autenticado actualmente, o null si no hay sesión.
+  /// Filtra qué pedidos se ven en la lista y se intentan subir: en un
+  /// dispositivo compartido cada preventa solo ve y envía los suyos. Lo
+  /// actualiza [AuthProvider] al iniciar/cerrar sesión.
+  String? _usuarioActivo;
+
   String get filtro => _filtro;
   bool get soloPendientes => _soloPendientes;
   bool get cargando => _cargando;
+  String? get usuarioActivo => _usuarioActivo;
+
+  /// Establece el preventa autenticado y recarga la lista para que el
+  /// filtrado se aplique inmediatamente. Llamar con null cuando se cierra
+  /// sesión; con el login del preventa al iniciarla o al arrancar la app
+  /// con sesión persistida.
+  Future<void> setUsuarioActivo(String? login) async {
+    if (login == _usuarioActivo) return;
+    _usuarioActivo = login;
+    await recargarDesdeLocal();
+  }
 
   /// Pedidos a mostrar tras aplicar el buscador y el filtro "solo
   /// pendientes". Sin filtros, devuelve todos descendiendo por fecha.
@@ -104,10 +121,12 @@ class PedidosProvider extends ChangeNotifier {
 
   /// Carga la lista completa desde SQLite. Se llama al arrancar la app y
   /// tras cada operación que la modifique (alta, eliminación, sincronización).
+  /// Filtra por [_usuarioActivo] si está definido: cada preventa solo ve
+  /// los suyos.
   Future<void> recargarDesdeLocal() async {
     _cargando = true;
     notifyListeners();
-    _todos = await _dao.listar();
+    _todos = await _dao.listar(usuarioLogin: _usuarioActivo);
     _cargando = false;
     notifyListeners();
   }
@@ -179,6 +198,7 @@ class PedidosProvider extends ChangeNotifier {
       total: totales.total,
       estadoPedido: EstadoPedido.borrador,
       estadoSync: EstadoSync.pendente,
+      usuarioLogin: _usuarioActivo,
       actualizadoEn: ahora,
       creadoEn: ahora,
     );
@@ -243,6 +263,10 @@ class PedidosProvider extends ChangeNotifier {
       total: totales.total,
       estadoPedido: EstadoPedido.borrador,
       estadoSync: EstadoSync.pendente,
+      // Preservamos el creador original (no lo cambiamos porque otro
+      // preventa edite el pedido — caso teórico, en la práctica solo lo edita
+      // quien lo creó).
+      usuarioLogin: existente.usuarioLogin,
       actualizadoEn: ahora,
       creadoEn: existente.creadoEn,
     );
@@ -271,7 +295,8 @@ class PedidosProvider extends ChangeNotifier {
   /// la sincronización general; al terminar refresca la lista en memoria
   /// para que los cambios de estado se reflejen en la UI.
   Future<ResultadoEnvioPedidos> enviarPendientesAlServidor() async {
-    final resultado = await _syncService.enviarPendientes();
+    final resultado =
+        await _syncService.enviarPendientes(usuarioLogin: _usuarioActivo);
     await recargarDesdeLocal();
     return resultado;
   }

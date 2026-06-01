@@ -13,7 +13,7 @@ class Migraciones {
 
   /// Versión actual del esquema. Hay que incrementarla cada vez que se añada
   /// una nueva versión al mapa [_porVersion].
-  static const int versionActual = 8;
+  static const int versionActual = 9;
 
   /// Sentencias SQL agrupadas por versión.
   ///
@@ -53,6 +53,13 @@ class Migraciones {
   ///   recién dado de alta pendiente de subir. Las líneas se borran en
   ///   cascada (ON DELETE CASCADE) al eliminar la cabecera y guardan el id
   ///   del producto en servidor directamente (los productos son read-only).
+  /// - **v9**: columna `usuario_login` en `pedidos`. Identifica al preventa
+  ///   que creó el pedido (en alta local) o al que pertenece según el
+  ///   backend (en sincronización descendente). La app filtra la lista por
+  ///   este campo cuando hay un preventa autenticado, de modo que en un
+  ///   dispositivo compartido cada preventa solo ve sus propios pedidos.
+  ///   Coincide con el campo `usuario` del `PedidoResponse` del backend
+  ///   (es el `nombreUsuario`/login, no el id numérico).
   static const Map<int, List<String>> _porVersion = {
     1: [
       '''
@@ -186,6 +193,10 @@ class Migraciones {
       )
       ''',
       'CREATE INDEX idx_lineas_pedido ON lineas_pedido(pedido_id_local)',
+    ],
+    9: [
+      'ALTER TABLE pedidos ADD COLUMN usuario_login TEXT',
+      'CREATE INDEX idx_pedidos_usuario ON pedidos(usuario_login)',
     ],
   };
 

@@ -11,7 +11,21 @@ class AuthProvider extends ChangeNotifier {
   final AuthService _authService;
   final TokenStorage _tokenStorage;
 
-  AuthProvider(this._authService, this._tokenStorage);
+  /// Callback que se invoca cada vez que cambia el preventa autenticado:
+  /// al iniciar sesión, al cerrarla y al arrancar la app con sesión
+  /// persistida. Pensado para que el [PedidosProvider] sepa qué usuario debe
+  /// usar como filtro de la lista local: en un dispositivo compartido cada
+  /// preventa solo ve los suyos, mientras que un ADMIN ve todos (mismo
+  /// criterio que aplica el backend en `/pedidos`).
+  ///
+  /// Parámetros:
+  /// - [login]: nombre de usuario autenticado, o null si no hay sesión.
+  /// - [esAdmin]: true si el rol es ADMIN. Permite que el caller decida no
+  ///   aplicar filtro en ese caso.
+  final void Function(String? login, bool esAdmin)? onUsuarioActivoChanged;
+
+  AuthProvider(this._authService, this._tokenStorage,
+      {this.onUsuarioActivoChanged});
 
   EstadoAuth _estado = EstadoAuth.desconocido;
   String? _nombreUsuario;
@@ -62,6 +76,7 @@ class AuthProvider extends ChangeNotifier {
       await _tokenStorage.limpiarSesion();
       _estado = EstadoAuth.noAutenticado;
     }
+    onUsuarioActivoChanged?.call(_nombreUsuario, esAdmin);
     notifyListeners();
   }
 
@@ -86,6 +101,7 @@ class AuthProvider extends ChangeNotifier {
       _estado = EstadoAuth.autenticado;
       _solicitarSincronizacion = true;
       _cargando = false;
+      onUsuarioActivoChanged?.call(_nombreUsuario, esAdmin);
       notifyListeners();
       return true;
     } catch (e) {
@@ -103,6 +119,7 @@ class AuthProvider extends ChangeNotifier {
     _rol = null;
     _sesionCaducada = false;
     _estado = EstadoAuth.noAutenticado;
+    onUsuarioActivoChanged?.call(null, false);
     notifyListeners();
   }
 }

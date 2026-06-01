@@ -70,8 +70,9 @@ class SyncPedidosService {
   /// Itera los pedidos pendientes y los envía uno a uno. Conserva el orden
   /// FIFO de creación para que la cola sea predecible. Si la sesión caduca
   /// (401), corta sin tocar lo que queda.
-  Future<ResultadoEnvioPedidos> enviarPendientes() async {
-    final pendientes = await _pedidosDao.listarPendientesDeEnvio();
+  Future<ResultadoEnvioPedidos> enviarPendientes({String? usuarioLogin}) async {
+    final pendientes =
+        await _pedidosDao.listarPendientesDeEnvio(usuarioLogin: usuarioLogin);
 
     int sincronizados = 0;
     int conError = 0;
