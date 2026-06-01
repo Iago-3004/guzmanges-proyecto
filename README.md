@@ -354,4 +354,4 @@ El workflow `.github/workflows/release.yml` genera los tres artefactos de instal
 **Iago Malvido Guzmán** — 2º DAM.
 🔗 [github.com/Iago-3004](https://github.com/Iago-3004)
 
-Proyecto desarrollado como Proyecto Final de Ciclo del título de Desarrollo de Aplicaciones Multiplataforma. Defensa: junio 2026.
+Proyecto desarrollado como Proyecto Final de Ciclo del título de Desarrollo de Aplicaciones Multiplataforma.
