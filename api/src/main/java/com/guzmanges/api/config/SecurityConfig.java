@@ -93,6 +93,12 @@ public class SecurityConfig {
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers(
+                                "/v3/api-docs",
+                                "/v3/api-docs/**",
+                                "/v3/api-docs.yaml",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**").permitAll()
                         .requestMatchers("/sync/**").hasRole("ADMIN")
                         .requestMatchers("/usuarios/**").hasRole("ADMIN")
                         .anyRequest().authenticated())

@@ -21,6 +21,7 @@ import com.guzmanges.api.dto.CrearUsuarioRequest;
 import com.guzmanges.api.dto.UsuarioResponse;
 import com.guzmanges.api.service.UsuarioService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -35,6 +36,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/usuarios")
 @RequiredArgsConstructor
+@Tag(name = "Usuarios", description = "Gestión de usuarios (solo ADMIN). No se usa desde la app móvil.")
 public class UsuarioController {
 
     private final UsuarioService usuarioService;

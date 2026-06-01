@@ -19,6 +19,7 @@ import com.guzmanges.api.dto.CrearPedidoRequest;
 import com.guzmanges.api.dto.PedidoResponse;
 import com.guzmanges.api.service.PedidoService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -32,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/pedidos")
 @RequiredArgsConstructor
+@Tag(name = "Pedidos", description = "Alta y consulta de pedidos. Un preventa ve solo los suyos; un ADMIN ve todos.")
 public class PedidoController {
 
     private final PedidoService pedidoService;

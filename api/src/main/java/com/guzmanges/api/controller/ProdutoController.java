@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.guzmanges.api.dto.ProdutoResponse;
 import com.guzmanges.api.service.ProdutoService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/productos")
 @RequiredArgsConstructor
+@Tag(name = "Productos", description = "Catálogo de productos (read-only; gestión en Odoo).")
 public class ProdutoController {
 
     private final ProdutoService produtoService;

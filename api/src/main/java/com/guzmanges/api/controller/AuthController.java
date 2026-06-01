@@ -10,6 +10,7 @@ import com.guzmanges.api.dto.JwtResponse;
 import com.guzmanges.api.dto.LoginRequest;
 import com.guzmanges.api.service.AuthService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -22,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
+@Tag(name = "Autenticación", description = "Login de usuarios. Único bloque sin JWT obligatorio.")
 public class AuthController {
 
     private final AuthService authService;

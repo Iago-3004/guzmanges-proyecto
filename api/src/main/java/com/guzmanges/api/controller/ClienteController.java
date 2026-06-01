@@ -19,6 +19,7 @@ import com.guzmanges.api.dto.ClienteResponse;
 import com.guzmanges.api.dto.CrearClienteRequest;
 import com.guzmanges.api.service.ClienteService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/clientes")
 @RequiredArgsConstructor
+@Tag(name = "Clientes", description = "Consulta de la cartera de clientes y alta de nuevos.")
 public class ClienteController {
 
     private final ClienteService clienteService;

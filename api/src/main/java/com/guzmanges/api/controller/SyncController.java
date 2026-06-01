@@ -11,6 +11,7 @@ import com.guzmanges.api.odoo.service.OdooMaestrosSyncService;
 import com.guzmanges.api.odoo.service.OdooSyncService;
 import com.guzmanges.api.odoo.service.SyncResult;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -20,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/sync")
 @RequiredArgsConstructor
+@Tag(name = "Sincronización Odoo", description = "Disparo manual de la sincronización con Odoo (solo ADMIN).")
 public class SyncController {
 
     private final OdooSyncService odooSyncService;

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.guzmanges.api.dto.CondicionPagoResponse;
 import com.guzmanges.api.service.CondicionPagoService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/condiciones-pago")
 @RequiredArgsConstructor
+@Tag(name = "Maestros", description = "Catálogos maestros (modos y condiciones de pago) importados de Odoo.")
 public class CondicionPagoController {
 
     private final CondicionPagoService condicionPagoService;

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.guzmanges.api.dto.ModoPagoResponse;
 import com.guzmanges.api.service.ModoPagoService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/modos-pago")
 @RequiredArgsConstructor
+@Tag(name = "Maestros", description = "Catálogos maestros (modos y condiciones de pago) importados de Odoo.")
 public class ModoPagoController {
 
     private final ModoPagoService modoPagoService;
