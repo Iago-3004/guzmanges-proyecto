@@ -21,9 +21,10 @@ class DialogoSincronizar extends StatelessWidget {
     return AlertDialog(
       icon: Icon(Icons.cloud_sync_outlined, size: 40, color: scheme.primary),
       title: const Text('Sincronizar datos'),
+      contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
       content: const Text(
-        '¿Quieres sincronizar ahora con el servidor para tener los catálogos '
-        'y la cartera de clientes al día?',
+        '¿Quieres sincronizar ahora con el servidor para tener clientes, '
+        'productos y pedidos al día?',
         textAlign: TextAlign.center,
       ),
       actions: [
