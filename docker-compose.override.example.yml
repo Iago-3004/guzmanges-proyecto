@@ -1,0 +1,17 @@
+# Override opcional para exponer el puerto de MySQL al host. Pensado para
+# desarrollo, cuando quieres conectarte a la BD con DBeaver, MySQL Workbench
+# o un cliente equivalente.
+#
+# Cómo activarlo:
+#   1. Copia este fichero a `docker-compose.override.yml` (sin `.example`).
+#      Docker Compose lo carga automáticamente junto con `docker-compose.yml`.
+#   2. Define MYSQL_HOST_PORT en tu `.env` si quieres usar un puerto distinto
+#      al 3306 (útil si ya tienes otro MySQL local corriendo).
+#   3. Levanta los servicios normalmente: `docker compose up -d --build`.
+#
+# Para volver a aislar MySQL: borra `docker-compose.override.yml`.
+
+services:
+  mysql:
+    ports:
+      - "${MYSQL_HOST_PORT:-3306}:3306"

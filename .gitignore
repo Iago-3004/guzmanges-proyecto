@@ -1,0 +1,12 @@
+# Variables de entorno con credenciales: NUNCA subir al repositorio.
+# Se versiona solo el `.env.example` con valores ficticios.
+.env
+
+# Override local de Docker Compose: se versiona solo el `.example`. El
+# override real puede contener decisiones de la máquina concreta (puerto
+# alternativo, etc.) y no debe ser global.
+docker-compose.override.yml
+
+# Sistema operativo.
+.DS_Store
+Thumbs.db

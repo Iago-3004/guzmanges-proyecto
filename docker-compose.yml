@@ -1,0 +1,81 @@
+# Despliegue de GuzmanGes con Docker Compose.
+#
+# Levanta dos servicios:
+#   - mysql: base de datos. NO se expone al host por defecto: solo la API,
+#            que vive en la misma red interna de Compose, puede conectarse.
+#            Para exponer MySQL temporalmente (DBeaver, MySQL Workbench, etc.),
+#            copia `docker-compose.override.example.yml` a
+#            `docker-compose.override.yml` — Compose lo carga automáticamente
+#            y añade el port mapping.
+#   - api:   la API REST de Spring Boot. Se reconstruye desde ./api con su
+#            propio Dockerfile (multi-stage). Espera a que MySQL esté listo
+#            (healthcheck) antes de arrancar, así no perdemos los primeros
+#            intentos de conexión por timing.
+#
+# Variables de entorno: se leen de un fichero `.env` en este mismo
+# directorio. Hay una plantilla en `.env.example` con valores de ejemplo.
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      # MySQL crea automáticamente la BD y el usuario aplicativo si se
+      # rellenan estas cuatro variables al primer arranque (cuando el
+      # volumen está vacío). En arranques sucesivos las ignora.
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Define MYSQL_ROOT_PASSWORD en .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-guzmanges}
+      MYSQL_USER: ${MYSQL_USER:-guzmanges}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Define MYSQL_PASSWORD en .env}
+    volumes:
+      # Volumen named: los datos sobreviven a `docker compose down`. Para
+      # borrar la BD por completo: `docker compose down -v`.
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      # mysqladmin ping vuelve 0 cuando el servidor acepta conexiones.
+      # La API usa este healthcheck para esperar a que MySQL esté listo.
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost",
+             "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "${API_HOST_PORT:-8080}:8080"
+    environment:
+      # --- MySQL ---
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: ${MYSQL_DATABASE:-guzmanges}
+      MYSQL_USER: ${MYSQL_USER:-guzmanges}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+      # --- JWT ---
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en .env}
+
+      # --- Odoo ---
+      ODOO_URL: ${ODOO_URL}
+      ODOO_DB: ${ODOO_DB}
+      ODOO_USER: ${ODOO_USER}
+      ODOO_APIKEY: ${ODOO_APIKEY}
+      ODOO_LANG: ${ODOO_LANG:-es_ES}
+      ODOO_SYNC_ENABLED: ${ODOO_SYNC_ENABLED:-true}
+
+      # --- Otros ---
+      POSICION_FISCAL_RECARGO_KEYWORD: ${POSICION_FISCAL_RECARGO_KEYWORD:-recargo}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:*}
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL:-false}
+
+      # JAVA_OPTS opcional, por si hace falta ajustar JVM (memoria, GC).
+      JAVA_OPTS: ${JAVA_OPTS:-}
+
+volumes:
+  mysql_data:

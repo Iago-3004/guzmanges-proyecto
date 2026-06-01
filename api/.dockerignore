@@ -1,0 +1,25 @@
+# Build outputs locales (no queremos meterlos en la imagen, se reconstruye dentro).
+target/
+**/target/
+
+# Configuración de IDEs y editores.
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# Logs y temporales.
+*.log
+*.tmp
+
+# Documentación y metadatos del repo que no aportan a la imagen.
+*.md
+.git/
+.gitignore
+.gitattributes
+
+# Sistema operativo.
+.DS_Store
+Thumbs.db

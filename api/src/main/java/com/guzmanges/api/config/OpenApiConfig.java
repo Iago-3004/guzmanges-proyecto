@@ -5,7 +5,6 @@ import org.springframework.context.annotation.Configuration;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
@@ -55,9 +54,6 @@ public class OpenApiConfig {
                                 + "y la sincronización bidireccional con Odoo. Todos los "
                                 + "endpoints (excepto `/auth/**` y la propia documentación) "
                                 + "requieren un JWT obtenido en `/auth/login`.")
-                        .contact(new Contact()
-                                .name("Iago Guzmán")
-                                .email("iagoguzman06@gmail.com"))
                         .license(new License()
                                 .name("Uso académico — Proyecto Final DAM")))
                 .addSecurityItem(new SecurityRequirement().addList(JWT_SCHEME))
