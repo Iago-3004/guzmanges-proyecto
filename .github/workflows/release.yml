@@ -54,6 +54,15 @@ jobs:
           context: ./api
           load: true
           tags: guzmanges-api:${{ env.PROJECT_VERSION }}
+        env:
+          # docker/build-push-action@v6 sube automáticamente un artefacto
+          # extra "<owner>~<repo>~<runid>.dockerbuild" con el resumen del
+          # build. No es un zip estándar y rompe el download-artifact del
+          # job "release" (que descarga todos los artefactos sin filtrar).
+          # Lo desactivamos: solo nos interesa el .tar.gz que generamos
+          # nosotros en el paso siguiente.
+          DOCKER_BUILD_SUMMARY: false
+          DOCKER_BUILD_RECORD_UPLOAD: false
 
       - name: Exportar la imagen a tar.gz
         # `docker save` genera el tarball de la imagen (con todas sus capas).
