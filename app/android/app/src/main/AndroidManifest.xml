@@ -2,7 +2,7 @@
     <!-- Necesario para que la app pueda llamar a la API REST -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="guzmanges_app"
+        android:label="GuzmanGes"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

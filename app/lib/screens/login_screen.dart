@@ -75,7 +75,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (mensaje != null) _bannerAviso(context, mensaje),
-                  const Icon(Icons.point_of_sale, size: 72),
+                  Image.asset(
+                    'assets/logo_guzmanges.png',
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.contain,
+                  ),
                   const SizedBox(height: 8),
                   Text('GuzmanGes',
                       style: Theme.of(context).textTheme.headlineMedium),

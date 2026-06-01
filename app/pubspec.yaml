@@ -53,6 +53,23 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  # Genera los iconos de launcher para Android e iOS a partir del logo.
+  # Ejecutar tras instalar: `dart run flutter_launcher_icons`.
+  flutter_launcher_icons: ^0.14.4
+
+# Configuración de los iconos de launcher para Android e iOS. La generación
+# se dispara manualmente con `dart run flutter_launcher_icons`.
+# - `image_path`: imagen fuente (PNG cuadrado, idealmente 1024×1024).
+# - `remove_alpha_ios` + `background_color_ios`: iOS rechaza imágenes con
+#   canal alfa en el App Store; rellenamos con un fondo blanco al exportar
+#   los iconos iOS (se conservan los píxeles, solo se aplana el alfa).
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/logo_guzmanges.png"
+  remove_alpha_ios: true
+  background_color_ios: "#FFFFFF"
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -63,6 +80,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/logo_guzmanges.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
