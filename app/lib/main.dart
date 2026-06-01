@@ -77,6 +77,7 @@ Future<void> main() async {
     catalogosProvider,
     productosProvider,
     clientesProvider,
+    pedidosProvider,
     syncClientesService,
     syncMetadataDao,
   );

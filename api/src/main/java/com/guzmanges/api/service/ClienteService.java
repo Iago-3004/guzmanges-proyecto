@@ -3,6 +3,8 @@ package com.guzmanges.api.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +16,7 @@ import com.guzmanges.api.entity.Usuario;
 import com.guzmanges.api.exception.CifDuplicadoException;
 import com.guzmanges.api.exception.ResourceNotFoundException;
 import com.guzmanges.api.mapper.ClienteMapper;
+import com.guzmanges.api.odoo.service.OdooSyncService;
 import com.guzmanges.api.repository.ClienteRepository;
 import com.guzmanges.api.repository.CondicionPagoRepository;
 import com.guzmanges.api.repository.ModoPagoRepository;
@@ -23,17 +26,21 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Lógica de negocio de los clientes: consulta de la cartera y alta de nuevos clientes.
- * Las altas quedan pendientes de envío a Odoo (estadoSync = PENDENTE).
+ * Las altas se intentan enviar inmediatamente a Odoo; si falla, quedan PENDENTE
+ * y el scheduler periódico las reintentará.
  */
 @Service
 @RequiredArgsConstructor
 public class ClienteService {
+
+    private static final Logger log = LoggerFactory.getLogger(ClienteService.class);
 
     private final ClienteRepository clienteRepository;
     private final ModoPagoRepository modoPagoRepository;
     private final CondicionPagoRepository condicionPagoRepository;
     private final UsuarioRepository usuarioRepository;
     private final ClienteMapper clienteMapper;
+    private final OdooSyncService odooSyncService;
 
     /**
      * Lista los clientes activos, ordenados por nombre comercial.
@@ -136,6 +143,27 @@ public class ClienteService {
         cliente.setFechaModificacion(LocalDateTime.now());
 
         Cliente guardado = clienteRepository.save(cliente);
+        intentarEnvioInmediato(guardado);
         return clienteMapper.toResponse(guardado);
+    }
+
+    /**
+     * Intenta enviar el cliente recién guardado a Odoo en la misma transacción
+     * del POST. Si Odoo responde, la entidad pasa a SINCRONIZADO con su
+     * idOdoo y el commit lo persiste atomicamente con el alta. Esto permite
+     * que un pedido enviado a continuación pueda resolver inmediatamente el
+     * {@code partner_id} en Odoo, sin esperar al scheduler periódico.
+     *
+     * Si Odoo falla (caído, timeout, conflicto), capturamos la excepción
+     * para NO tirar atrás el alta: el cliente queda en PENDENTE y el
+     * scheduler lo reintentará. El POST sigue devolviendo 201 con el cliente.
+     */
+    private void intentarEnvioInmediato(Cliente cliente) {
+        try {
+            odooSyncService.enviarUno(cliente);
+        } catch (Exception e) {
+            log.warn("[POST /clientes] Cliente {} guardado pero envío inmediato a Odoo falló "
+                    + "— queda PENDENTE para el scheduler: {}", cliente.getId(), e.getMessage());
+        }
     }
 }

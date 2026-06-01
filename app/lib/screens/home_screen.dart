@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../providers/clientes_provider.dart';
 import '../providers/pedidos_provider.dart';
 import '../providers/sync_provider.dart';
+import '../widgets/dialogo_resumen_sync.dart';
 import '../widgets/dialogo_sincronizar.dart';
 import 'clientes/clientes_lista_screen.dart';
 import 'pedidos/pedidos_lista_screen.dart';
@@ -220,19 +221,22 @@ class _HomeScreenState extends State<HomeScreen> {
       final resultado = await sync.sincronizarTodo();
       if (!mounted) return;
 
-      // Cuando hay errores o la sesión caduca, un SnackBar pasa fácilmente
-      // desapercibido. Se sustituye por un diálogo central que obligue al
-      // usuario a reaccionar (o al menos a leer el aviso).
+      // Sesión caducada tiene su propio diálogo (acción a tomar:
+      // reautenticarse). El resto va al diálogo de resumen, que cubre tanto
+      // el "todo bien" como el "con errores" con el mismo formato y un
+      // botón directo para resolver si hay errores.
       if (resultado.sesionCaducada) {
         await _mostrarDialogoSesionCaducada();
-      } else if (resultado.clientesConError > 0) {
-        await _mostrarDialogoConErrores(resultado);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.green.shade700,
-            content: Text(resultado.resumen()),
-          ),
+        await DialogoResumenSync.mostrar(
+          context,
+          resultado: resultado,
+          onVerEstado: resultado.hayErrores
+              ? () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const EstadoSyncScreen()),
+                  )
+              : null,
         );
       }
     } catch (e) {
@@ -245,57 +249,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
-  }
-
-  /// Diálogo central tras una sincronización en la que algún cliente no se
-  /// pudo enviar. Ofrece ir directamente a la pantalla de estado para
-  /// resolverlos o cerrarlo y revisarlos más tarde.
-  Future<void> _mostrarDialogoConErrores(ResultadoSincronizacion r) async {
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(Icons.warning_amber_rounded,
-            color: Colors.amber.shade700, size: 40),
-        title: const Text('Sincronización con avisos'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Se han descargado ${r.clientesBajados} '
-              'cliente${r.clientesBajados == 1 ? '' : 's'} y enviado '
-              '${r.clientesSubidos}.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '${r.clientesConError} '
-              'cliente${r.clientesConError == 1 ? ' ha quedado' : 's han quedado'} '
-              'con error y necesita${r.clientesConError == 1 ? '' : 'n'} tu revisión.',
-              style: TextStyle(
-                color: Colors.red.shade700,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cerrar'),
-          ),
-          FilledButton.tonal(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const EstadoSyncScreen()),
-              );
-            },
-            child: const Text('Ver estado'),
-          ),
-        ],
-      ),
-    );
   }
 
   /// Diálogo central cuando el servidor ha respondido 401 a mitad de la

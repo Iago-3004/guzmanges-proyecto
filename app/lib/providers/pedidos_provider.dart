@@ -202,6 +202,16 @@ class PedidosProvider extends ChangeNotifier {
     return resultado;
   }
 
+  /// Envía todos los pedidos pendientes y los que quedaron en error al
+  /// servidor. Pensado para llamarse desde el [SyncProvider] como parte de
+  /// la sincronización general; al terminar refresca la lista en memoria
+  /// para que los cambios de estado se reflejen en la UI.
+  Future<ResultadoEnvioPedidos> enviarPendientesAlServidor() async {
+    final resultado = await _syncService.enviarPendientes();
+    await recargarDesdeLocal();
+    return resultado;
+  }
+
   /// Elimina un pedido local. Solo se permite si está en BORRADOR + PENDENTE
   /// (todavía no subido al servidor): no permitimos borrar pedidos ya
   /// confirmados desde la app, esa decisión la toma Odoo.

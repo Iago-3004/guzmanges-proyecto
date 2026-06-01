@@ -256,6 +256,31 @@ public class OdooSyncService {
     }
 
     /**
+     * Envía un único cliente a Odoo de forma inmediata. Pensado para llamarse
+     * justo después de guardar un cliente nuevo desde {@code POST /clientes},
+     * para que la sincronización de la app deje al cliente confirmado en
+     * Odoo en la misma vuelta y los pedidos asociados puedan resolver
+     * inmediatamente su {@code partner_id}.
+     *
+     * Si Odoo está caído o el envío falla, se lanza la excepción al llamador
+     * (que típicamente la captura y deja el cliente en PENDENTE para que el
+     * scheduler periódico lo reintente). Nada se marca ERRO desde aquí; el
+     * primer intento inmediato no debería gastar el "cupo" de error si la
+     * causa es transitoria.
+     *
+     * Comparte transacción con el llamador: si se invoca desde dentro de
+     * {@code @Transactional}, los cambios sobre la entidad (idOdoo,
+     * estadoSync, fechaModificacion) se persisten en el mismo commit.
+     */
+    @Transactional
+    public void enviarUno(Cliente cliente) {
+        // Carga las caches de país y provincia que enviarCliente necesita.
+        // Es un coste pequeño (1-2 lookups en Odoo) y solo para esta llamada.
+        inicializarCachesUbicacion(List.of(cliente));
+        enviarCliente(cliente);
+    }
+
+    /**
      * Crea un cliente en Odoo, le asigna su idOdoo y lo marca como SINCRONIZADO.
      */
     private void enviarCliente(Cliente cliente) {
