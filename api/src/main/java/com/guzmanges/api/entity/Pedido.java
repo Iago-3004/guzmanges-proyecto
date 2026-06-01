@@ -78,4 +78,12 @@ public class Pedido {
     private List<LineaPedido> lineas = new ArrayList<>();
 
     private LocalDateTime fechaModificacion;
+
+    /**
+     * Marca temporal {@code write_date} del registro en Odoo. Permite saber
+     * si un pedido ya importado ha cambiado allí desde la última vez (cambio
+     * de estado, anulación, etc.) sin tener que recalcular el resto de campos
+     * cada vez. Null para los pedidos creados desde la app antes de subirse.
+     */
+    private LocalDateTime fechaModificacionOdoo;
 }

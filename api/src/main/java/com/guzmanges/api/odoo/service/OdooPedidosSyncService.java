@@ -3,9 +3,12 @@ package com.guzmanges.api.odoo.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -20,10 +23,15 @@ import com.guzmanges.api.entity.EstadoSync;
 import com.guzmanges.api.entity.LineaPedido;
 import com.guzmanges.api.entity.Pedido;
 import com.guzmanges.api.entity.Produto;
+import com.guzmanges.api.entity.TipoUsuario;
 import com.guzmanges.api.entity.Usuario;
+import com.guzmanges.api.odoo.mapper.OdooPedidoMapper;
 import com.guzmanges.api.odoo.repository.OdooClienteRepository;
 import com.guzmanges.api.odoo.repository.OdooPedidoRepository;
+import com.guzmanges.api.repository.ClienteRepository;
 import com.guzmanges.api.repository.PedidoRepository;
+import com.guzmanges.api.repository.ProdutoRepository;
+import com.guzmanges.api.repository.UsuarioRepository;
 
 /**
  * Servicio de envío de pedidos a Odoo (cierre del ciclo bidireccional).
@@ -56,8 +64,12 @@ public class OdooPedidosSyncService {
     private static final Logger log = LoggerFactory.getLogger(OdooPedidosSyncService.class);
 
     private final PedidoRepository pedidoRepository;
+    private final ClienteRepository clienteRepository;
+    private final ProdutoRepository produtoRepository;
+    private final UsuarioRepository usuarioRepository;
     private final OdooPedidoRepository odooPedidoRepository;
     private final OdooClienteRepository odooClienteRepository;
+    private final OdooPedidoMapper odooPedidoMapper;
 
     /**
      * Palabra clave (compartida con {@link com.guzmanges.api.mapper.ClienteMapper}
@@ -70,13 +82,206 @@ public class OdooPedidosSyncService {
     private final String recargoKeyword;
 
     public OdooPedidosSyncService(PedidoRepository pedidoRepository,
+                                  ClienteRepository clienteRepository,
+                                  ProdutoRepository produtoRepository,
+                                  UsuarioRepository usuarioRepository,
                                   OdooPedidoRepository odooPedidoRepository,
                                   OdooClienteRepository odooClienteRepository,
+                                  OdooPedidoMapper odooPedidoMapper,
                                   @Value("${app.posicion-fiscal.recargo-keyword:recargo}") String recargoKeyword) {
         this.pedidoRepository = pedidoRepository;
+        this.clienteRepository = clienteRepository;
+        this.produtoRepository = produtoRepository;
+        this.usuarioRepository = usuarioRepository;
         this.odooPedidoRepository = odooPedidoRepository;
         this.odooClienteRepository = odooClienteRepository;
+        this.odooPedidoMapper = odooPedidoMapper;
         this.recargoKeyword = recargoKeyword.toLowerCase();
+    }
+
+    /**
+     * Importa a la BD local los pedidos confirmados de Odoo. Para cada
+     * registro de Odoo se busca el equivalente en MySQL por idOdoo: si ya
+     * existe y {@code write_date} es posterior al último guardado, se
+     * actualiza; si es nuevo, se crea; si está al día, se omite.
+     *
+     * <p>Los pedidos saltados (cliente no sincronizado todavía, líneas sin
+     * producto resoluble) se registran en el log pero no detienen la
+     * importación.
+     *
+     * <p>Al terminar, los pedidos locales con idOdoo que ya no aparecen en
+     * Odoo se borran (reconciliación), igual que se hace con clientes.
+     *
+     * @return número de pedidos creados o actualizados
+     */
+    @Transactional
+    public int importarPedidosDesdeOdoo() {
+        log.info("=== IMPORTANDO PEDIDOS DESDE ODOO ===");
+        List<Map<String, Object>> pedidosOdoo = odooPedidoRepository.findPedidos();
+        log.info("Pedidos encontrados en Odoo: {}", pedidosOdoo.size());
+
+        // Lectura masiva de las líneas de todos los pedidos en una sola
+        // llamada XML-RPC, para no caer en N+1.
+        Map<Integer, Map<String, Object>> lineasPorId = cargarLineas(pedidosOdoo);
+
+        // Caches por importación, evitan ir a la BD por cada pedido.
+        Map<Integer, Usuario> cacheUsuario = new HashMap<>();
+        Usuario usuarioFallback = usuarioRepository
+                .findFirstByTipoUsuario(TipoUsuario.ADMIN)
+                .orElse(null);
+
+        int nuevos = 0;
+        int actualizados = 0;
+        int sinCambios = 0;
+        int saltados = 0;
+        Set<String> idsVistos = new HashSet<>();
+        for (Map<String, Object> datosOdoo : pedidosOdoo) {
+            try {
+                String idOdoo = String.valueOf(((Number) datosOdoo.get("id")).intValue());
+                idsVistos.add(idOdoo);
+
+                Pedido desdeOdoo = odooPedidoMapper.fromOdooToPedido(
+                        datosOdoo,
+                        lineasPorId,
+                        idOdooCliente -> clienteRepository
+                                .findByIdOdoo(idOdooCliente).orElse(null),
+                        idOdooProducto -> produtoRepository
+                                .findByIdOdoo(idOdooProducto).orElse(null),
+                        odooUserId -> resolverUsuario(odooUserId, cacheUsuario),
+                        usuarioFallback);
+                if (desdeOdoo == null) {
+                    saltados++;
+                    log.info("[ODOO -> DB] Saltado pedido idOdoo={} (cliente o productos no encontrados en local)",
+                            idOdoo);
+                    continue;
+                }
+
+                Optional<Pedido> existente = pedidoRepository.findByIdOdoo(idOdoo);
+                if (existente.isPresent()) {
+                    Pedido pedido = existente.get();
+                    if (pedido.getFechaModificacionOdoo() != null
+                            && desdeOdoo.getFechaModificacionOdoo() != null
+                            && !desdeOdoo.getFechaModificacionOdoo()
+                                    .isAfter(pedido.getFechaModificacionOdoo())) {
+                        sinCambios++;
+                        continue;
+                    }
+                    odooPedidoMapper.copiarDatosDeOdoo(pedido, desdeOdoo);
+                    // Las líneas se reemplazan en bloque: clear+addAll dispara
+                    // orphanRemoval sobre las anteriores y persiste las nuevas
+                    // con el pedido como dueño.
+                    pedido.getLineas().clear();
+                    for (LineaPedido nueva : desdeOdoo.getLineas()) {
+                        nueva.setPedido(pedido);
+                        pedido.getLineas().add(nueva);
+                    }
+                    pedidoRepository.save(pedido);
+                    actualizados++;
+                } else {
+                    // El mapper construye las líneas apuntando al pedido nuevo
+                    // (setPedido); JPA persiste todo por cascada.
+                    pedidoRepository.save(desdeOdoo);
+                    nuevos++;
+                    log.info("[ODOO -> DB] Nuevo pedido: {} (idOdoo: {})",
+                            desdeOdoo.getNumero(), idOdoo);
+                }
+            } catch (Exception e) {
+                log.error("[ODOO -> DB] Error importando pedido idOdoo={}: {}",
+                        datosOdoo.get("id"), e.getMessage());
+            }
+        }
+
+        log.info("=== PEDIDOS: {} nuevos, {} actualizados, {} sin cambios, {} saltados (de {} en Odoo) ===",
+                nuevos, actualizados, sinCambios, saltados, pedidosOdoo.size());
+
+        reconciliarPedidosBorrados(idsVistos);
+        return nuevos + actualizados;
+    }
+
+    /**
+     * Recoge todos los ids de {@code sale.order.line} de los pedidos a
+     * importar y los lee de Odoo en una sola llamada. Devuelve un índice
+     * id-de-línea → registro completo, listo para que el mapper resuelva las
+     * líneas de cada pedido sin más viajes a Odoo.
+     */
+    private Map<Integer, Map<String, Object>> cargarLineas(
+            List<Map<String, Object>> pedidosOdoo) {
+        List<Integer> idsLinea = new ArrayList<>();
+        for (Map<String, Object> pedido : pedidosOdoo) {
+            Object raw = pedido.get("order_line");
+            if (raw instanceof Object[] arr) {
+                for (Object id : arr) {
+                    if (id instanceof Number n) idsLinea.add(n.intValue());
+                }
+            }
+        }
+        if (idsLinea.isEmpty()) return Map.of();
+
+        List<Map<String, Object>> lineasOdoo = odooPedidoRepository.findOrderLines(idsLinea);
+        Map<Integer, Map<String, Object>> indice = new HashMap<>(lineasOdoo.size());
+        for (Map<String, Object> linea : lineasOdoo) {
+            Object idObj = linea.get("id");
+            if (idObj instanceof Number n) indice.put(n.intValue(), linea);
+        }
+        return indice;
+    }
+
+    /**
+     * Detecta los pedidos borrados en Odoo (idOdoo local que no aparece entre
+     * los importados, y que tampoco se devuelve al re-consultar Odoo) y los
+     * elimina de MySQL para mantener el histórico consistente. Mismo patrón
+     * que la reconciliación de clientes.
+     */
+    private void reconciliarPedidosBorrados(Set<String> idsVistos) {
+        List<Pedido> candidatos = pedidoRepository.findByIdOdooIsNotNull().stream()
+                .filter(p -> !idsVistos.contains(p.getIdOdoo()))
+                .toList();
+        if (candidatos.isEmpty()) {
+            return;
+        }
+        List<Integer> idsCandidatos = candidatos.stream()
+                .map(p -> Integer.parseInt(p.getIdOdoo()))
+                .toList();
+        Set<Integer> existentes = odooPedidoRepository.findExistingIds(idsCandidatos);
+
+        int borrados = 0;
+        for (Pedido pedido : candidatos) {
+            if (existentes.contains(Integer.parseInt(pedido.getIdOdoo()))) {
+                // Sigue existiendo en Odoo: probablemente lo filtramos por
+                // estado (draft/cancel). No es un borrado real.
+                continue;
+            }
+            pedidoRepository.delete(pedido);
+            borrados++;
+            log.info("[ODOO -> DB] Pedido {} (idOdoo {}) borrado en Odoo: eliminado de MySQL",
+                    pedido.getNumero(), pedido.getIdOdoo());
+        }
+        if (borrados > 0) {
+            log.info("=== RECONCILIACIÓN DE PEDIDOS BORRADOS: {} eliminados ===", borrados);
+        }
+    }
+
+    /**
+     * Resuelve el {@link Usuario} local a partir del id del vendedor en Odoo:
+     * obtiene su login/email en Odoo y busca el usuario por ese email. Usa
+     * una caché por importación. Devuelve null si no hay equivalente local
+     * (el caller aplicará el fallback de ADMIN).
+     */
+    private Usuario resolverUsuario(Integer odooUserId, Map<Integer, Usuario> cache) {
+        if (odooUserId == null) return null;
+        if (cache.containsKey(odooUserId)) return cache.get(odooUserId);
+        Usuario encontrado = null;
+        String[] identidades = odooClienteRepository.findUserLoginAndEmail(odooUserId);
+        if (identidades != null) {
+            for (String identidad : identidades) {
+                if (identidad != null) {
+                    encontrado = usuarioRepository.findByEmailIgnoreCase(identidad).orElse(null);
+                    if (encontrado != null) break;
+                }
+            }
+        }
+        cache.put(odooUserId, encontrado);
+        return encontrado;
     }
 
     /**

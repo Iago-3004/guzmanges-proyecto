@@ -52,6 +52,9 @@ public class OdooSyncScheduler {
         sincronizarProductos();
         sincronizarClientes();
         enviarPedidosPendientes();
+        // Importación de pedidos creados/modificados directamente en Odoo.
+        // Va al final porque depende de tener clientes y productos al día.
+        importarPedidos();
         log.info("======== SINCRONIZACIÓN INICIAL FINALIZADA ========");
     }
 
@@ -97,16 +100,21 @@ public class OdooSyncScheduler {
     }
 
     /**
-     * Sincronización periódica del envío de pedidos a Odoo. Es el cierre del
-     * ciclo bidireccional: convierte cada {@code BORRADOR + PENDENTE} local en
-     * un {@code sale.order} de Odoo y reescribe los totales con los definitivos
-     * que devuelve Odoo (aplicando la posición fiscal del cliente).
+     * Sincronización periódica de pedidos en ambos sentidos:
+     * <ul>
+     *   <li>Envía a Odoo los pedidos locales en {@code BORRADOR + PENDENTE/ERRO}
+     *       (con sus reintentos).</li>
+     *   <li>Importa de Odoo los pedidos confirmados creados o modificados allí
+     *       (por ejemplo, los que el backoffice da de alta directamente), para
+     *       que la app los vea sin que el preventa tenga que conectarse a Odoo.</li>
+     * </ul>
      */
     @Scheduled(fixedDelayString = "${odoo.sync.pedidos.interval:900000}",
                initialDelayString = "${odoo.sync.pedidos.interval:900000}")
     public void syncPedidosPeriodico() {
-        log.info("[ODOO SYNC] Sincronización periódica de pedidos pendientes...");
+        log.info("[ODOO SYNC] Sincronización periódica de pedidos (ambos sentidos)...");
         enviarPedidosPendientes();
+        importarPedidos();
     }
 
     /**
@@ -172,6 +180,19 @@ public class OdooSyncScheduler {
             }
         } catch (Exception e) {
             log.error("[ERROR] Fallo al enviar pedidos a Odoo: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Importa los pedidos confirmados desde Odoo. Aísla el fallo para que no
+     * detenga el resto de la sincronización.
+     */
+    private void importarPedidos() {
+        try {
+            int n = odooPedidosSyncService.importarPedidosDesdeOdoo();
+            log.info("[ODOO -> DB] {} pedidos importados/actualizados desde Odoo", n);
+        } catch (Exception e) {
+            log.error("[ERROR] Fallo al importar pedidos desde Odoo: {}", e.getMessage());
         }
     }
 }

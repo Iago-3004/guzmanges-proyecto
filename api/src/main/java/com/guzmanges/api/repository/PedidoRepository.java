@@ -66,4 +66,11 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
      * quieren ver la cartera completa sin filtro.
      */
     List<Pedido> findAllByOrderByFechaDesc();
+
+    /**
+     * Lista todos los pedidos que tienen idOdoo (es decir, los que se conocen
+     * en Odoo). Lo usa la importación de pedidos para detectar borrados
+     * comparando los ids vistos con los locales.
+     */
+    List<Pedido> findByIdOdooIsNotNull();
 }
