@@ -134,26 +134,34 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
       appBar: AppBar(
         title: Text(widget.modoEdicion ? 'Editar pedido' : 'Nuevo pedido'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          _SeccionCliente(
-            cliente: _cliente,
-            onSeleccionar: _seleccionarCliente,
-          ),
-          const SizedBox(height: 20),
-          _SeccionLineas(
-            lineas: _lineas,
-            puedeAnadir: _cliente != null,
-            onAnadir: _anadirLinea,
-            onEliminar: _eliminarLinea,
-            onCantidadCambiada: _onCantidadCambiada,
-          ),
-          const SizedBox(height: 20),
-          _TarjetaTotales(totales: totales),
-          const SizedBox(height: 16),
-          _avisoProvisional(),
-        ],
+      // El teclado numérico de iOS no trae botón "Done", así que damos al
+      // usuario dos formas estándar de cerrarlo: tocar fuera de cualquier
+      // campo o arrastrar la lista.
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [
+            _SeccionCliente(
+              cliente: _cliente,
+              onSeleccionar: _seleccionarCliente,
+            ),
+            const SizedBox(height: 20),
+            _SeccionLineas(
+              lineas: _lineas,
+              puedeAnadir: _cliente != null,
+              onAnadir: _anadirLinea,
+              onEliminar: _eliminarLinea,
+              onCantidadCambiada: _onCantidadCambiada,
+            ),
+            const SizedBox(height: 20),
+            _TarjetaTotales(totales: totales),
+            const SizedBox(height: 16),
+            _avisoProvisional(),
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(

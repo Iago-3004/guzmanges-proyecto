@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/validation/validador_documento_identidad.dart';
 import '../../dto/crear_cliente_request.dart';
 import '../../models/condicion_pago.dart';
 import '../../models/modo_pago.dart';
@@ -96,8 +97,8 @@ class _ClienteFormScreenState extends State<ClienteFormScreen> {
                 ),
                 _campoTexto(
                   controller: _cifCtrl,
-                  label: 'CIF *',
-                  validator: (v) => _requerido(v, 'El CIF es obligatorio'),
+                  label: 'CIF/NIF *',
+                  validator: ValidadorDocumentoIdentidad.validar,
                   textCapitalization: TextCapitalization.characters,
                 ),
               ],
@@ -318,7 +319,8 @@ class _ClienteFormScreenState extends State<ClienteFormScreen> {
       final auth = context.read<AuthProvider>();
       final clientesProvider = context.read<ClientesProvider>();
 
-      final cifNormalizado = _cifCtrl.text.trim().toUpperCase();
+      final cifNormalizado =
+          ValidadorDocumentoIdentidad.normalizar(_cifCtrl.text);
 
       // Comprobación local de CIF duplicado: si ya existe alguno en SQLite con
       // el mismo CIF, mostramos un diálogo y dejamos que el usuario decida.
