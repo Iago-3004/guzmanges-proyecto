@@ -1,0 +1,199 @@
+# Workflow de release: genera los tres artefactos de instalación y los
+# publica en una release de GitHub. Pensado para que tanto el tribunal del
+# TFC como cualquier interesado pueda descargar lo necesario sin tener que
+# clonar el repositorio ni configurar el entorno de desarrollo.
+#
+# Disparadores:
+#   - push de un tag `v*.*.*`  → la versión sale del propio tag.
+#   - workflow_dispatch (UI)   → versión se introduce manualmente.
+#
+# Artefactos:
+#   - guzmanges-api-<v>.tar.gz : imagen Docker exportada (docker load + run).
+#   - guzmanges-app-<v>.apk    : Android, firmada con la clave de debug.
+#   - guzmanges-app-<v>.ipa    : iOS SIN FIRMAR (instalable vía Sideloadly,
+#                                 AltStore o Xcode con un Apple ID gratuito,
+#                                 vigencia 7 días por el límite del free tier
+#                                 de Apple).
+
+name: Release artefactos
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Etiqueta de versión (ej. v1.0.0)'
+        required: true
+        type: string
+
+# La versión se calcula una vez y la comparten todos los jobs. Si el
+# workflow lo dispara un tag, `github.ref_name` ya es el tag; si lo dispara
+# la UI, tomamos el input que introdujo el usuario.
+env:
+  PROJECT_VERSION: ${{ github.event.inputs.version || github.ref_name }}
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Imagen Docker de la API
+  # --------------------------------------------------------------------------
+  docker:
+    name: Imagen Docker de la API
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build de la imagen
+        uses: docker/build-push-action@v6
+        with:
+          context: ./api
+          load: true
+          tags: guzmanges-api:${{ env.PROJECT_VERSION }}
+
+      - name: Exportar la imagen a tar.gz
+        # `docker save` genera el tarball de la imagen (con todas sus capas).
+        # Quien lo descargue puede hacer `docker load < guzmanges-api-vX.Y.Z.tar.gz`
+        # y la imagen queda lista para `docker run` sin necesidad de registry.
+        run: |
+          docker save guzmanges-api:${{ env.PROJECT_VERSION }} \
+            | gzip > guzmanges-api-${{ env.PROJECT_VERSION }}.tar.gz
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: guzmanges-api-*.tar.gz
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # APK Android
+  # --------------------------------------------------------------------------
+  apk:
+    name: APK Android
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolver dependencias
+        run: flutter pub get
+
+      - name: Build APK release
+        # La firma es la del keystore de debug (configurado así en
+        # `android/app/build.gradle.kts`). Funciona como instalable, pero el
+        # usuario tendrá que aceptar "Instalar desde orígenes desconocidos".
+        run: flutter build apk --release
+
+      - name: Renombrar APK con la versión
+        run: mv build/app/outputs/flutter-apk/app-release.apk guzmanges-app-${{ env.PROJECT_VERSION }}.apk
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: app/guzmanges-app-*.apk
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # IPA iOS (sin firma)
+  # --------------------------------------------------------------------------
+  ipa:
+    name: IPA iOS (sin firmar)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolver dependencias
+        run: flutter pub get
+
+      - name: Build iOS sin firma
+        # `--no-codesign` evita el paso de firma de Xcode. El binario queda
+        # en build/ios/iphoneos/Runner.app, sin envolver en .ipa.
+        run: flutter build ios --release --no-codesign
+
+      - name: Empaquetar como IPA
+        # Un .ipa es esencialmente un ZIP con `Payload/<App>.app` dentro.
+        # Lo construimos a mano porque `flutter build ipa` requiere firma
+        # para exportar y aquí solo queremos un instalable sideloadable.
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r guzmanges-app-${{ env.PROJECT_VERSION }}.ipa Payload
+          rm -rf Payload
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: app/guzmanges-app-*.ipa
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # Publicar la release con los tres artefactos adjuntos
+  # --------------------------------------------------------------------------
+  release:
+    name: Publicar release
+    needs: [docker, apk, ipa]
+    runs-on: ubuntu-latest
+    permissions:
+      # Necesario para que softprops/action-gh-release pueda crear el release
+      # y subir los binarios. Por defecto el GITHUB_TOKEN es read-only.
+      contents: write
+    steps:
+      - name: Descargar todos los artefactos
+        uses: actions/download-artifact@v4
+        with:
+          path: artefactos
+
+      - name: Crear release (en borrador)
+        uses: softprops/action-gh-release@v2
+        with:
+          # Si fue manual, el tag se crea con el nombre del input. Si fue por
+          # push de tag, ya existe y simplemente se asocian los archivos.
+          tag_name: ${{ env.PROJECT_VERSION }}
+          name: GuzmanGes ${{ env.PROJECT_VERSION }}
+          generate_release_notes: true
+          # La release se queda en BORRADOR. Solo es visible para el
+          # propietario del repo. Permite verificar los artefactos antes de
+          # publicarla: descargar el .apk e instalarlo, probar el .ipa con
+          # Sideloadly, importar el .tar.gz en Docker. Una vez validado,
+          # pulsar "Publish release" desde la UI de GitHub.
+          draft: true
+          body: |
+            ## Medios de instalación
+
+            - **`guzmanges-api-${{ env.PROJECT_VERSION }}.tar.gz`** — Imagen Docker de la API.
+              Importar con: `docker load < guzmanges-api-${{ env.PROJECT_VERSION }}.tar.gz`.
+            - **`guzmanges-app-${{ env.PROJECT_VERSION }}.apk`** — APK de la app Android.
+              Firmada con clave de debug; permite "orígenes desconocidos" para instalar.
+            - **`guzmanges-app-${{ env.PROJECT_VERSION }}.ipa`** — IPA de la app iOS (sin firmar).
+              Instalable vía [Sideloadly](https://sideloadly.io/), AltStore o Xcode con un
+              Apple ID gratuito (re-firma cada 7 días).
+          files: |
+            artefactos/docker-image/guzmanges-api-*.tar.gz
+            artefactos/apk/guzmanges-app-*.apk
+            artefactos/ipa/guzmanges-app-*.ipa
