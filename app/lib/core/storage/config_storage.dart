@@ -17,4 +17,12 @@ class ConfigStorage {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_claveUrlServidor);
   }
+
+  /// Borra la URL del servidor. Tras esto, la app volverá a mostrar la
+  /// pantalla de configuración inicial. Lo usa el botón "Borrar todos los
+  /// datos" para dejar la app como recién instalada.
+  Future<void> borrarUrlServidor() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_claveUrlServidor);
+  }
 }

@@ -311,7 +311,18 @@ class _ClienteFormScreenState extends State<ClienteFormScreen> {
     if (_modoValidacion == AutovalidateMode.disabled) {
       setState(() => _modoValidacion = AutovalidateMode.onUserInteraction);
     }
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      // El campo con error puede haber quedado fuera de la zona visible si el
+      // teclado oculta parte del formulario. Avisamos con un SnackBar para que
+      // el usuario sepa por qué no se guardó aunque no vea el campo señalado.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: const Text('Hay campos con errores. Revísalos antes de guardar.'),
+        ),
+      );
+      return;
+    }
 
     setState(() => _guardando = true);
     try {

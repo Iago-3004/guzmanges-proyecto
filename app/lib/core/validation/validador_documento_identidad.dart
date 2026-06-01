@@ -32,9 +32,22 @@ class ValidadorDocumentoIdentidad {
     return valor.trim().toUpperCase().replaceAll(RegExp(r'[\s-]'), '');
   }
 
+  /// Mensaje único para cualquier fallo de validación cuando la longitud
+  /// SÍ es la correcta (9 caracteres). Se usa para no dar pistas concretas
+  /// (letra esperada, primera letra inválida, etc.) que pueden ser ruido
+  /// para el usuario; con que sepa que no es válido le basta para revisarlo.
+  static const String _mensajeInvalido = 'El CIF/NIF no es válido';
+
   /// Valida un NIF/NIE/CIF. Devuelve `null` si es correcto, o un mensaje de
   /// error en castellano si no lo es. El mensaje está pensado para mostrarse
   /// directamente bajo el campo del formulario.
+  ///
+  /// La diferenciación es deliberadamente mínima:
+  /// - Si está vacío, se pide rellenarlo.
+  /// - Si la longitud no es 9, se indica el formato esperado para guiar
+  ///   al usuario que aún está escribiendo.
+  /// - En cualquier otro caso (longitud correcta pero estructura, letra o
+  ///   dígito de control inválidos) se devuelve un mensaje genérico.
   static String? validar(String? valor) {
     if (valor == null || valor.trim().isEmpty) {
       return 'El CIF/NIF es obligatorio';
@@ -53,37 +66,37 @@ class ValidadorDocumentoIdentidad {
     if (_cifLetrasIniciales.contains(primero)) {
       return _validarCif(v);
     }
-    return 'Formato no válido (debe empezar por número, X/Y/Z o letra de CIF)';
+    return _mensajeInvalido;
   }
 
   static String? _validarNif(String v) {
     if (!RegExp(r'^\d{8}[A-Z]$').hasMatch(v)) {
-      return 'NIF no válido: 8 dígitos y 1 letra';
+      return _mensajeInvalido;
     }
     final numero = int.parse(v.substring(0, 8));
     final letraEsperada = _letrasNif[numero % 23];
     if (letraEsperada != v[8]) {
-      return 'La letra del NIF no es correcta (debería ser $letraEsperada)';
+      return _mensajeInvalido;
     }
     return null;
   }
 
   static String? _validarNie(String v) {
     if (!RegExp(r'^[XYZ]\d{7}[A-Z]$').hasMatch(v)) {
-      return 'NIE no válido: X/Y/Z + 7 dígitos + 1 letra';
+      return _mensajeInvalido;
     }
     const equivalentes = {'X': '0', 'Y': '1', 'Z': '2'};
     final numero = int.parse(equivalentes[v[0]]! + v.substring(1, 8));
     final letraEsperada = _letrasNif[numero % 23];
     if (letraEsperada != v[8]) {
-      return 'La letra del NIE no es correcta (debería ser $letraEsperada)';
+      return _mensajeInvalido;
     }
     return null;
   }
 
   static String? _validarCif(String v) {
     if (!RegExp(r'^[A-Z]\d{7}[\dA-J]$').hasMatch(v)) {
-      return 'CIF no válido: letra + 7 dígitos + dígito o letra';
+      return _mensajeInvalido;
     }
     final letraInicial = v[0];
     final centro = v.substring(1, 8);
@@ -108,17 +121,12 @@ class ValidadorDocumentoIdentidad {
     final digitoControlChar = digitoControl.toString();
 
     if (_cifControlLetra.contains(letraInicial)) {
-      if (control != letraControl) {
-        return 'El dígito de control del CIF no es válido (debería ser $letraControl)';
-      }
+      if (control != letraControl) return _mensajeInvalido;
     } else if (_cifControlDigito.contains(letraInicial)) {
-      if (control != digitoControlChar) {
-        return 'El dígito de control del CIF no es válido (debería ser $digitoControlChar)';
-      }
+      if (control != digitoControlChar) return _mensajeInvalido;
     } else {
       if (control != digitoControlChar && control != letraControl) {
-        return 'El dígito de control del CIF no es válido '
-            '(debería ser $digitoControlChar o $letraControl)';
+        return _mensajeInvalido;
       }
     }
     return null;

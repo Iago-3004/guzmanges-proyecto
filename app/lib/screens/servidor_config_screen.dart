@@ -38,8 +38,28 @@ class _ServidorConfigScreenState extends State<ServidorConfigScreen> {
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _guardando = true);
-    // Al guardar, AppConfigProvider notifica y la app navega automáticamente al login.
-    await context.read<AppConfigProvider>().guardarUrl(_urlCtrl.text);
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      // No basta con guardar la URL: si está mal escrita o el servidor no
+      // está corriendo, el usuario se enteraría más tarde en el login con
+      // un error genérico. Probamos contra /actuator/health primero.
+      await context
+          .read<AppConfigProvider>()
+          .comprobarYGuardarUrl(_urlCtrl.text);
+      // Si todo OK, AppConfigProvider notifica y la app navega automáticamente al login.
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _guardando = false);
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Theme.of(context).colorScheme.error,
+          duration: const Duration(seconds: 5),
+          content:
+              Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
   }
 
   @override

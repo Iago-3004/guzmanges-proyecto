@@ -7,6 +7,7 @@ import '../providers/pedidos_provider.dart';
 import '../providers/sync_provider.dart';
 import '../widgets/dialogo_resumen_sync.dart';
 import '../widgets/dialogo_sincronizar.dart';
+import 'acerca_de_screen.dart';
 import 'clientes/clientes_lista_screen.dart';
 import 'pedidos/pedidos_lista_screen.dart';
 import 'productos/productos_lista_screen.dart';
@@ -139,6 +140,18 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const Spacer(),
             const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('Acerca de'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AcercaDeScreen(),
+                  ),
+                );
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Cerrar sesión'),

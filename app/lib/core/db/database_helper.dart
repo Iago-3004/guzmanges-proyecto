@@ -82,4 +82,20 @@ class DatabaseHelper {
     await actual.close();
     _db = null;
   }
+
+  /// Borra POR COMPLETO la base de datos local: cierra la conexión, elimina
+  /// el fichero del disco y vuelve a abrir una BD vacía (con todas las
+  /// migraciones aplicadas desde cero). Lo usa el botón "Borrar todos los
+  /// datos" de la pantalla "Acerca de" para dejar la app como recién
+  /// instalada.
+  Future<void> borrarTodo() async {
+    await cerrar();
+    final directorio = await getDatabasesPath();
+    final ruta = p.join(directorio, _nombreBd);
+    await deleteDatabase(ruta);
+    await abrir();
+    if (kDebugMode) {
+      debugPrint('DatabaseHelper: BD borrada y recreada en $ruta');
+    }
+  }
 }
