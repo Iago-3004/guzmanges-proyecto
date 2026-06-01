@@ -5,6 +5,7 @@ import '../../models/cliente.dart' show EstadoSync;
 import '../../models/pedido.dart';
 import '../../providers/pedidos_provider.dart';
 import '../../widgets/chip_estado_sync.dart';
+import 'pedido_form_screen.dart';
 
 /// Vista de solo lectura con el detalle de un pedido. Si todavía está en
 /// BORRADOR + PENDENTE (no se ha subido al servidor), ofrece un botón para
@@ -57,6 +58,12 @@ class _PedidoDetalleScreenState extends State<PedidoDetalleScreen> {
       appBar: AppBar(
         title: Text(pedido.numero ?? 'Pedido borrador'),
         actions: [
+          if (_puedeEditar(pedido))
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Editar pedido',
+              onPressed: () => _editar(pedido),
+            ),
           if (_puedeEliminar(pedido))
             IconButton(
               icon: const Icon(Icons.delete_outline),
@@ -110,6 +117,25 @@ class _PedidoDetalleScreenState extends State<PedidoDetalleScreen> {
 
   bool _puedeEliminar(Pedido p) {
     return p.estadoPedido == EstadoPedido.borrador && p.idServidor == null;
+  }
+
+  /// Editable: pedido en BORRADOR que aún no se subió al servidor. Cubre
+  /// tanto los PENDENTE (esperando a la próxima sincronización) como los
+  /// ERRO (el último intento falló: corregir y reintentar). Una vez el
+  /// servidor le asigna id, la fuente de verdad es Odoo y la app no toca.
+  bool _puedeEditar(Pedido p) {
+    return p.estadoPedido == EstadoPedido.borrador && p.idServidor == null;
+  }
+
+  Future<void> _editar(Pedido p) async {
+    final cambiado = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PedidoFormScreen(idLocalEditar: p.idLocal),
+      ),
+    );
+    if (cambiado == true && mounted) {
+      await _cargar();
+    }
   }
 
   Future<void> _confirmarEliminar(Pedido p) async {

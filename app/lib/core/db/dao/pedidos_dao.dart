@@ -133,6 +133,31 @@ class PedidosDao {
     });
   }
 
+  /// Actualiza un pedido local existente (cabecera + líneas) en una
+  /// transacción. Las líneas se reemplazan en bloque: se borran las
+  /// existentes y se insertan las nuevas con sus UUIDs. Pensado para la
+  /// edición de un pedido todavía no sincronizado, así que se asume que la
+  /// fila ya existe (si no, el update se aplica sobre 0 filas y el insert
+  /// de líneas no escribe nada útil).
+  Future<void> actualizar(Pedido pedido) async {
+    await _db.transaction((txn) async {
+      await txn.update(
+        _tablaPedidos,
+        pedido.toMap(),
+        where: 'id_local = ?',
+        whereArgs: [pedido.idLocal],
+      );
+      await txn.delete(
+        _tablaLineas,
+        where: 'pedido_id_local = ?',
+        whereArgs: [pedido.idLocal],
+      );
+      for (final linea in pedido.lineas) {
+        await txn.insert(_tablaLineas, linea.toMap());
+      }
+    });
+  }
+
   /// Marca un pedido como sincronizado tras el envío al servidor. Rellena
   /// `id_servidor`, `id_odoo`, `numero` y los totales devueltos por la
   /// API, y limpia errores anteriores.

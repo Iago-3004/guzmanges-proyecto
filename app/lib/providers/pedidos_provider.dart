@@ -188,6 +188,70 @@ class PedidosProvider extends ChangeNotifier {
     return pedido;
   }
 
+  /// Actualiza un pedido local existente (no sincronizado) con un nuevo
+  /// cliente y nuevas líneas. Recalcula los totales y deja el pedido en
+  /// BORRADOR + PENDENTE, limpiando cualquier error anterior — el siguiente
+  /// envío reintentará desde cero.
+  ///
+  /// Solo se permite si el pedido aún no tiene `id_servidor`: una vez
+  /// sincronizado, las modificaciones las hace Odoo y la app no debe alterar
+  /// el estado local.
+  Future<Pedido> actualizarPedidoLocal({
+    required String idLocal,
+    required Cliente cliente,
+    required List<BorradorLinea> lineas,
+  }) async {
+    if (lineas.isEmpty) {
+      throw ArgumentError('Un pedido debe tener al menos una línea');
+    }
+    final existente = await _dao.obtenerPorIdLocal(idLocal);
+    if (existente == null) {
+      throw StateError('Pedido no encontrado: $idLocal');
+    }
+    if (existente.idServidor != null) {
+      throw StateError('No se puede editar un pedido ya sincronizado');
+    }
+
+    final ahora = DateTime.now();
+    final lineasPedido = lineas
+        .map((b) => LineaPedido(
+              idLocal: _uuid.v4(),
+              pedidoIdLocal: idLocal,
+              productoId: b.productoId,
+              codigoProducto: b.codigoProducto,
+              descripcion: b.descripcion,
+              precio: b.precio,
+              iva: b.iva,
+              recargoEquivalencia: b.recargoEquivalencia,
+              cantidade: b.cantidade,
+              subtotal: b.subtotal,
+            ))
+        .toList(growable: false);
+
+    final totales = _calcularTotales(lineasPedido);
+
+    final pedido = Pedido(
+      idLocal: idLocal,
+      fecha: existente.fecha,
+      clienteIdLocal: cliente.idLocal,
+      clienteIdServidor: cliente.idServidor,
+      clienteNombre: cliente.razonSocial ?? cliente.nombreComercial,
+      lineas: lineasPedido,
+      totalBase: totales.base,
+      totalIva: totales.iva,
+      totalRE: totales.re,
+      total: totales.total,
+      estadoPedido: EstadoPedido.borrador,
+      estadoSync: EstadoSync.pendente,
+      actualizadoEn: ahora,
+      creadoEn: existente.creadoEn,
+    );
+
+    await _dao.actualizar(pedido);
+    await recargarDesdeLocal();
+    return pedido;
+  }
+
   /// Reintenta el envío al servidor de un pedido en estado ERRO o PENDENTE
   /// (típicamente desde la pantalla de estado de sincronización). Devuelve
   /// el resultado del intento para que la UI muestre el mensaje correcto.

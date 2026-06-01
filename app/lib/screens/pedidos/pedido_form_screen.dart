@@ -11,7 +11,7 @@ import '../../providers/pedidos_provider.dart';
 import '../../widgets/selector_cliente_dialogo.dart';
 import '../../widgets/selector_producto_dialogo.dart';
 
-/// Alta de un pedido nuevo. Estructura:
+/// Alta o edición de un pedido. Estructura:
 ///
 /// 1. Selector de cliente. Mientras no se elige, no se puede añadir líneas.
 /// 2. Lista dinámica de líneas: producto + cantidad (precio, IVA y RE se
@@ -19,10 +19,19 @@ import '../../widgets/selector_producto_dialogo.dart';
 /// 3. Tarjeta de totales en vivo (base + IVA + RE = total) recalculados en
 ///    Dart como previsualización; el cálculo definitivo lo hace Odoo al
 ///    confirmar el pedido.
-/// 4. Botón "Guardar pedido" → llama a [PedidosProvider.crearPedidoLocal],
-///    que persiste e intenta enviar inmediatamente al servidor.
+/// 4. Botón inferior: guarda el pedido (alta) o aplica los cambios (edición).
+///
+/// En modo edición se reciben [idLocalEditar] (UUID del pedido a editar),
+/// el formulario se pre-rellena con sus datos y al guardar se llama a
+/// [PedidosProvider.actualizarPedidoLocal]. Solo se aceptan pedidos aún no
+/// sincronizados con el servidor (id_servidor == null).
 class PedidoFormScreen extends StatefulWidget {
-  const PedidoFormScreen({super.key});
+  /// UUID del pedido a editar. Si es null, se crea uno nuevo.
+  final String? idLocalEditar;
+
+  const PedidoFormScreen({super.key, this.idLocalEditar});
+
+  bool get modoEdicion => idLocalEditar != null;
 
   @override
   State<PedidoFormScreen> createState() => _PedidoFormScreenState();
@@ -55,6 +64,54 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
       _clientesLocales = clientes;
       _productosLocales = productos;
     });
+    // En modo edición rellenamos el formulario una vez tenemos las listas:
+    // necesitamos resolver el Cliente por idLocal y los Producto por id de
+    // cada línea para reconstruir los `_LineaEditor`.
+    if (widget.modoEdicion) {
+      await _cargarPedidoExistente(clientes, productos);
+    }
+  }
+
+  Future<void> _cargarPedidoExistente(
+      List<Cliente> clientes, List<Producto> productos) async {
+    final pedido =
+        await context.read<PedidosProvider>().obtener(widget.idLocalEditar!);
+    if (pedido == null || !mounted) return;
+
+    Cliente? cliente;
+    for (final c in clientes) {
+      if (c.idLocal == pedido.clienteIdLocal) {
+        cliente = c;
+        break;
+      }
+    }
+    if (cliente == null) return;
+
+    final editores = <_LineaEditor>[];
+    for (final l in pedido.lineas) {
+      Producto? producto;
+      for (final p in productos) {
+        if (p.id == l.productoId) {
+          producto = p;
+          break;
+        }
+      }
+      if (producto == null) continue;
+      editores.add(_LineaEditor(
+        producto: producto,
+        precio: l.precio,
+        iva: l.iva,
+        recargo: l.recargoEquivalencia,
+        cantidade: l.cantidade,
+      ));
+    }
+
+    setState(() {
+      _cliente = cliente;
+      _lineas
+        ..clear()
+        ..addAll(editores);
+    });
   }
 
   @override
@@ -75,7 +132,7 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nuevo pedido'),
+        title: Text(widget.modoEdicion ? 'Editar pedido' : 'Nuevo pedido'),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -113,7 +170,9 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
                     ),
                   )
                 : const Icon(Icons.save),
-            label: Text(_guardando ? 'Guardando…' : 'Guardar pedido'),
+            label: Text(_guardando
+                ? 'Guardando…'
+                : (widget.modoEdicion ? 'Guardar cambios' : 'Guardar pedido')),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
             ),
@@ -223,26 +282,36 @@ class _PedidoFormScreenState extends State<PedidoFormScreen> {
     final navigator = Navigator.of(context);
 
     try {
-      await provider.crearPedidoLocal(
-        cliente: _cliente!,
-        lineas: _lineas
-            .map((l) => BorradorLinea(
-                  productoId: l.producto.id,
-                  codigoProducto: l.producto.referencia,
-                  descripcion: l.producto.descripcion,
-                  precio: l.precio,
-                  iva: l.iva,
-                  recargoEquivalencia: l.recargo,
-                  cantidade: l.cantidade,
-                ))
-            .toList(),
-      );
+      final borradores = _lineas
+          .map((l) => BorradorLinea(
+                productoId: l.producto.id,
+                codigoProducto: l.producto.referencia,
+                descripcion: l.producto.descripcion,
+                precio: l.precio,
+                iva: l.iva,
+                recargoEquivalencia: l.recargo,
+                cantidade: l.cantidade,
+              ))
+          .toList();
+      if (widget.modoEdicion) {
+        await provider.actualizarPedidoLocal(
+          idLocal: widget.idLocalEditar!,
+          cliente: _cliente!,
+          lineas: borradores,
+        );
+      } else {
+        await provider.crearPedidoLocal(
+          cliente: _cliente!,
+          lineas: borradores,
+        );
+      }
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
           backgroundColor: Colors.green.shade700,
-          content: const Text(
-              'Pedido guardado. Se enviará al servidor al sincronizar'),
+          content: Text(widget.modoEdicion
+              ? 'Cambios guardados. Se enviarán al servidor al sincronizar'
+              : 'Pedido guardado. Se enviará al servidor al sincronizar'),
         ),
       );
       navigator.pop(true);
