@@ -3,11 +3,11 @@ import 'package:uuid/uuid.dart';
 
 import '../core/db/dao/clientes_dao.dart';
 import '../core/db/dao/pedidos_dao.dart';
-import '../dto/crear_pedido_request.dart';
 import '../models/cliente.dart' show Cliente, EstadoSync;
 import '../models/linea_pedido.dart';
 import '../models/pedido.dart';
 import '../services/pedidos_service.dart';
+import '../services/sync_pedidos_service.dart';
 
 /// Una línea aún sin pedido asignado, tal como la construye el formulario
 /// antes de guardar. Es un valor de paso: el provider la convierte en
@@ -52,11 +52,16 @@ class PedidosProvider extends ChangeNotifier {
   final PedidosService _service;
   final PedidosDao _dao;
   final ClientesDao _clientesDao;
+  final SyncPedidosService _syncService;
   final Uuid _uuid;
 
-  PedidosProvider(this._service, this._dao, this._clientesDao,
-      {Uuid? uuid})
-      : _uuid = uuid ?? const Uuid();
+  PedidosProvider(
+    this._service,
+    this._dao,
+    this._clientesDao,
+    this._syncService, {
+    Uuid? uuid,
+  }) : _uuid = uuid ?? const Uuid();
 
   List<Pedido> _todos = const [];
   String _filtro = '';
@@ -89,6 +94,14 @@ class PedidosProvider extends ChangeNotifier {
   int get conError =>
       _todos.where((p) => p.estadoSync == EstadoSync.erro).length;
 
+  /// Devuelve todos los pedidos en un estado de sincronización concreto,
+  /// sin aplicar los filtros activos de la lista principal. Lo usa la
+  /// pantalla de estado de sincronización para listar pendientes y errores
+  /// con independencia de lo que el usuario tenga filtrado en otra vista.
+  List<Pedido> pedidosPorEstado(EstadoSync estado) {
+    return _todos.where((p) => p.estadoSync == estado).toList(growable: false);
+  }
+
   /// Carga la lista completa desde SQLite. Se llama al arrancar la app y
   /// tras cada operación que la modifique (alta, eliminación, sincronización).
   Future<void> recargarDesdeLocal() async {
@@ -119,12 +132,12 @@ class PedidosProvider extends ChangeNotifier {
   /// los totales en Dart como previsualización y lo guarda en SQLite en
   /// estado PENDENTE.
   ///
-  /// A continuación se intenta subir al servidor inmediatamente: si tiene
-  /// éxito, la fila pasa a SINCRONIZADO con los totales definitivos
-  /// devueltos por la API; si falla, queda PENDENTE y el [SyncProvider] lo
-  /// reintentará en la próxima sincronización.
+  /// No llama al servidor: la app es offline-first, igual que con clientes.
+  /// El pedido sube al backend cuando el usuario pulsa Sincronizar; en ese
+  /// momento el backend, a su vez, lo enviará inmediatamente a Odoo sin
+  /// esperar a su scheduler periódico.
   ///
-  /// Devuelve el pedido tal como quedó en SQLite (con o sin id de servidor).
+  /// Devuelve el pedido tal como quedó persistido en local.
   Future<Pedido> crearPedidoLocal({
     required Cliente cliente,
     required List<BorradorLinea> lineas,
@@ -171,60 +184,22 @@ class PedidosProvider extends ChangeNotifier {
     );
 
     await _dao.insertarLocal(pedido);
-    await _intentarEnviarInmediato(pedido);
     await recargarDesdeLocal();
-
-    // Tras la recarga, devolver el pedido refrescado por si el envío
-    // inmediato lo dejó SINCRONIZADO con totales definitivos.
-    return (await _dao.obtenerPorIdLocal(idLocal)) ?? pedido;
+    return pedido;
   }
 
-  /// Intenta enviar un pedido recién creado al servidor. Solo se llega a
-  /// llamar si el cliente ya tiene `id_servidor`: si no, se omite y el
-  /// pedido queda PENDENTE para que la próxima sincronización lo trate
-  /// como "esperando cliente".
-  Future<void> _intentarEnviarInmediato(Pedido pedido) async {
-    if (pedido.clienteIdServidor == null) {
-      if (kDebugMode) {
-        debugPrint('PedidosProvider: cliente sin idServidor — pedido ${pedido.idLocal} '
-            'queda PENDENTE para la próxima sincronización');
-      }
-      return;
-    }
-
-    try {
-      final request = CrearPedidoRequest(
-        clienteId: pedido.clienteIdServidor!,
-        lineas: pedido.lineas
-            .map((l) => CrearLineaRequest(
-                  productoId: l.productoId,
-                  cantidade: l.cantidade,
-                  precio: l.precio,
-                  iva: l.iva,
-                  recargoEquivalencia: l.recargoEquivalencia,
-                ))
-            .toList(),
-      );
-      final json = await _service.crear(request);
-      await _dao.marcarSincronizado(
-        idLocal: pedido.idLocal,
-        idServidor: json['id'] as int,
-        idOdoo: json['idOdoo'] as String?,
-        numero: json['numero'] as String?,
-        estadoPedido:
-            EstadoPedido.desdeBackend(json['estadoPedido'] as String?),
-        totalBase: (json['totalBase'] as num?)?.toDouble() ?? 0.0,
-        totalIva: (json['totalIva'] as num?)?.toDouble() ?? 0.0,
-        totalRE: (json['totalRE'] as num?)?.toDouble() ?? 0.0,
-        total: (json['total'] as num?)?.toDouble() ?? 0.0,
-      );
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('PedidosProvider: envío inmediato falló para pedido ${pedido.idLocal}: $e');
-      }
-      // El pedido queda PENDENTE (es su estado actual). El SyncProvider lo
-      // reintentará en la próxima sincronización.
-    }
+  /// Reintenta el envío al servidor de un pedido en estado ERRO o PENDENTE
+  /// (típicamente desde la pantalla de estado de sincronización). Devuelve
+  /// el resultado del intento para que la UI muestre el mensaje correcto.
+  ///
+  /// Tras el intento se recarga la lista desde SQLite, así la UI refleja
+  /// inmediatamente el nuevo estado (sincronizado, sigue en error, etc.).
+  Future<ResultadoEnvioPedido> reintentarPedido(String idLocal) async {
+    final pedido = await _dao.obtenerPorIdLocal(idLocal);
+    if (pedido == null) return ResultadoEnvioPedido.errorRecuperable;
+    final resultado = await _syncService.reenviarUno(pedido);
+    await recargarDesdeLocal();
+    return resultado;
   }
 
   /// Elimina un pedido local. Solo se permite si está en BORRADOR + PENDENTE

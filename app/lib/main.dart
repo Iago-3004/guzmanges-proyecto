@@ -26,6 +26,7 @@ import 'services/clientes_service.dart';
 import 'services/pedidos_service.dart';
 import 'services/productos_service.dart';
 import 'services/sync_clientes_service.dart';
+import 'services/sync_pedidos_service.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -50,6 +51,8 @@ Future<void> main() async {
   final pedidosDao = PedidosDao();
   final syncMetadataDao = SyncMetadataDao();
   final syncClientesService = SyncClientesService(apiClient, clientesDao);
+  final syncPedidosService =
+      SyncPedidosService(apiClient, pedidosDao, clientesDao);
 
   // Si ya hay una URL configurada, se aplica al cliente HTTP antes de arrancar
   final urlGuardada = await configStorage.leerUrlServidor();
@@ -64,9 +67,12 @@ Future<void> main() async {
   final clientesProvider =
       ClientesProvider(clientesService, clientesDao, syncClientesService)
         ..recargarDesdeLocal();
-  final pedidosProvider =
-      PedidosProvider(pedidosService, pedidosDao, clientesDao)
-        ..recargarDesdeLocal();
+  final pedidosProvider = PedidosProvider(
+    pedidosService,
+    pedidosDao,
+    clientesDao,
+    syncPedidosService,
+  )..recargarDesdeLocal();
   final syncProvider = SyncProvider(
     catalogosProvider,
     productosProvider,

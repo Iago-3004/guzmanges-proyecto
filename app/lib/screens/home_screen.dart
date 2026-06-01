@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/clientes_provider.dart';
+import '../providers/pedidos_provider.dart';
 import '../providers/sync_provider.dart';
 import '../widgets/dialogo_sincronizar.dart';
 import 'clientes/clientes_lista_screen.dart';
+import 'pedidos/pedidos_lista_screen.dart';
 import 'productos/productos_lista_screen.dart';
 import 'sync/estado_sync_screen.dart';
 
@@ -113,11 +115,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 _irAProductos(context);
               },
             ),
-            const ListTile(
-              leading: Icon(Icons.receipt_long),
-              title: Text('Pedidos'),
-              subtitle: Text('Próximamente'),
-              enabled: false,
+            ListTile(
+              leading: const Icon(Icons.receipt_long),
+              title: const Text('Pedidos'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _irAPedidos(context);
+              },
             ),
             const Divider(height: 1),
             ListTile(
@@ -181,8 +185,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _TarjetaSeccion(
           icono: Icons.receipt_long,
           titulo: 'Pedidos',
-          descripcion: 'Próximamente.',
-          onTap: null,
+          descripcion: 'Alta y consulta de pedidos de venta.',
+          onTap: () => _irAPedidos(context),
         ),
       ],
     );
@@ -201,6 +205,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void _irAProductos(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ProductosListaScreen()),
+    );
+  }
+
+  void _irAPedidos(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PedidosListaScreen()),
     );
   }
 
@@ -319,9 +329,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// Banner persistente que avisa de clientes pendientes o con error de
-/// sincronización. Se oculta cuando todo está al día. Al tocarlo lleva a la
-/// pantalla [EstadoSyncScreen] para que el usuario revise y resuelva.
+/// Banner persistente que avisa de clientes o pedidos pendientes o con
+/// error de sincronización. Se oculta cuando todo está al día. Al tocarlo
+/// lleva a la pantalla [EstadoSyncScreen] para que el usuario revise y
+/// resuelva.
+///
+/// Suma los contadores de clientes y pedidos para que el aviso refleje el
+/// estado global de la app: el usuario no debería tener que mirar dos
+/// pantallas distintas para saber si hay trabajo pendiente.
 ///
 /// El color y el texto cambian según haya solo pendientes (ámbar) o
 /// también errores (rojo), para que el usuario distinga de un vistazo si
@@ -332,8 +347,15 @@ class _BannerEstadoSync extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final clientes = context.watch<ClientesProvider>();
-    final pendientes = clientes.pendientes;
-    final conError = clientes.conError;
+    final pedidos = context.watch<PedidosProvider>();
+
+    final clientesPend = clientes.pendientes;
+    final clientesErr = clientes.conError;
+    final pedidosPend = pedidos.pendientes;
+    final pedidosErr = pedidos.conError;
+
+    final pendientes = clientesPend + pedidosPend;
+    final conError = clientesErr + pedidosErr;
     if (pendientes == 0 && conError == 0) return const SizedBox.shrink();
 
     final hayError = conError > 0;
@@ -349,7 +371,12 @@ class _BannerEstadoSync extends StatelessWidget {
 
     final icono = hayError ? Icons.error_outline : Icons.cloud_upload;
     final accion = hayError ? 'Toca para resolver' : 'Toca para revisar';
-    final mensaje = _construirMensaje(pendientes, conError);
+    final mensaje = _construirMensaje(
+      clientesPend: clientesPend,
+      clientesErr: clientesErr,
+      pedidosPend: pedidosPend,
+      pedidosErr: pedidosErr,
+    );
 
     return Card(
       margin: EdgeInsets.zero,
@@ -404,20 +431,41 @@ class _BannerEstadoSync extends StatelessWidget {
     );
   }
 
-  /// Construye el texto del banner según cuántos pendientes y errores haya.
-  /// Cuando hay errores, esos predominan en la frase para que el usuario
-  /// los priorice; los pendientes se mencionan como complemento si los hay.
-  String _construirMensaje(int pendientes, int conError) {
-    if (conError > 0) {
-      final base =
-          'Hay $conError cliente${conError == 1 ? '' : 's'} con error de sincronización';
-      if (pendientes > 0) {
-        return '$base y $pendientes pendiente${pendientes == 1 ? '' : 's'} de enviar.';
-      }
-      return '$base.';
+  /// Construye el texto del banner desglosando por tipo de entidad. Cuando
+  /// hay errores se mencionan antes que los pendientes para que el usuario
+  /// los priorice. Se enumeran clientes y pedidos por separado para que
+  /// quede claro qué tocar (la pantalla de estado tiene secciones distintas).
+  String _construirMensaje({
+    required int clientesPend,
+    required int clientesErr,
+    required int pedidosPend,
+    required int pedidosErr,
+  }) {
+    final partesErr = <String>[];
+    if (clientesErr > 0) {
+      partesErr.add('$clientesErr '
+          'cliente${clientesErr == 1 ? '' : 's'} con error');
     }
-    return 'Hay $pendientes cliente${pendientes == 1 ? '' : 's'} '
-        'pendiente${pendientes == 1 ? '' : 's'} de enviar al servidor.';
+    if (pedidosErr > 0) {
+      partesErr.add('$pedidosErr '
+          'pedido${pedidosErr == 1 ? '' : 's'} con error');
+    }
+    final partesPend = <String>[];
+    if (clientesPend > 0) {
+      partesPend.add('$clientesPend '
+          'cliente${clientesPend == 1 ? '' : 's'} pendiente${clientesPend == 1 ? '' : 's'}');
+    }
+    if (pedidosPend > 0) {
+      partesPend.add('$pedidosPend '
+          'pedido${pedidosPend == 1 ? '' : 's'} pendiente${pedidosPend == 1 ? '' : 's'}');
+    }
+
+    if (partesErr.isNotEmpty) {
+      final base = 'Hay ${partesErr.join(' y ')}';
+      if (partesPend.isEmpty) return '$base de sincronización.';
+      return '$base y ${partesPend.join(' y ')} de enviar.';
+    }
+    return 'Hay ${partesPend.join(' y ')} de enviar al servidor.';
   }
 }
 
